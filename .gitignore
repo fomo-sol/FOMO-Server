@@ -1,0 +1,25 @@
+# Node.js
+node_modules/
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+*.log
+*.sqlite
+*.sqlite-journal
+*.sublime-project
+*.sublime-workspace
+
+# Build artifacts
+dist/
+build/
+coverage/
+
+# IDE specific files
+.idea/
+.vscode/
+
+# Environment specific files (if not using .env)
+config/*.json
