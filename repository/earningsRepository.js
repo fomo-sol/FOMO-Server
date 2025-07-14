@@ -1,4 +1,5 @@
-const db = require("../config/db");
+
+const pool = require("../config/db");
 
 const dummyEarnings = [
     {
@@ -19,6 +20,28 @@ const dummyEarnings = [
     },
 ];
 
+
+const getEarningsEXCD = async (symbol) => {
+    try {
+        const conn = await pool.getConnection();
+        const rows = await conn.query(
+            "SELECT stock_excd FROM stocks WHERE stock_symbol = ?",
+            [symbol]
+        );
+        conn.release();
+
+        if (rows.length > 0) {
+            return rows[0].stock_excd;
+        } else {
+            throw new Error("Symbol not found");
+        }
+    } catch (err) {
+        console.error("getEarningsEXCD error:", err);
+        throw err;
+    }
+};
+
+
 const langContent = {
     "1": {
         ko: "애플 2025년 2분기 실적 발표 예정 (한국어)",
@@ -31,6 +54,8 @@ const langContent = {
         summary: "AI 분석: 시장 기대 상회",
     },
 };
+
+exports.getEarningsEXCD = getEarningsEXCD;
 
 exports.getAllEarnings = async () => dummyEarnings;
 
