@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controller/telegramController");
+const telegramController = require("../controller/telegramController");
 
-router.post("/subscribe", controller.subscribeUser); // /api/telegram/subscribe
+router.post("/subscribe", telegramController.subscribeTelegram);
 
 module.exports = router;

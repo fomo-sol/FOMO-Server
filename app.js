@@ -4,7 +4,9 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 const cors = require("cors");
+var app = express();
 require("dotenv").config();
+require("./config/telegramBot");
 
 var indexRouter = require("./routes/index");
 const testRouter = require("./routes/test");
@@ -19,9 +21,6 @@ const favoritesRouter = require("./routes/favorites");
 const notificationsRouter = require("./routes/notifications");
 const telegramRouter = require("./routes/telegram");
 const userRouter = require("./routes/user");
-
-
-var app = express();
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
