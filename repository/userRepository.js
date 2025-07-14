@@ -1,30 +1,44 @@
-exports.registerUser = async (userData) => {
-    // 실제 DB 저장은 생략
-    return {
-        id: "dummy-user-1",
-        username: userData.username,
-        message: "회원가입 성공",
-    };
-};
+const pool = require("../config/db");
+const bcrypt = require("bcrypt");
 
-exports.loginUser = async (credentials) => {
-    if (credentials.username === "test" && credentials.password === "1234") {
-        return {
-            token: "dummy-jwt-token",
-            username: "test",
-        };
+exports.createUser = async (userData) => {
+    const { username, email, passwd } = userData;
+
+    try {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(passwd, saltRounds);
+
+        // 1. INSERT
+        await pool.execute(
+            `INSERT INTO users (username, email, passwd) VALUES (?, ?, ?)`,
+            [username, email, hashedPassword]
+        );
+
+        // 2. UUID 기반 사용자 재조회
+        const [rows] = await pool.execute(
+            `SELECT id, username, email FROM users WHERE username = ?`,
+            [username]
+        );
+
+        return rows[0];
+    } catch (err) {
+        console.error("[REPOSITORY ERROR]", err);
+        throw err;
     }
-    return { error: "로그인 실패" };
 };
 
-exports.logoutUser = async () => {
-    return "로그아웃 되었습니다.";
-};
+exports.findByEmail = async (email) => {
+    try {
+        const rows = await pool.execute(
+            `SELECT id, username, email, passwd FROM users WHERE email = ?`,
+            [email]
+        );
 
-exports.getUserInfo = async () => {
-    return {
-        id: "dummy-user-1",
-        username: "test",
-        telegram_id: "12345678",
-    };
+        console.log("[DEBUG] rows from mariadb.execute():", rows);
+
+        return rows[0];
+    } catch (err) {
+        console.error("[REPOSITORY ERROR] findByEmail 실패:", err);
+        throw err;
+    }
 };
