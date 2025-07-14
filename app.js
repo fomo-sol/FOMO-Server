@@ -8,7 +8,6 @@ require("dotenv").config();
 
 var indexRouter = require("./routes/index");
 const testRouter = require("./routes/test");
-var hantuRouter = require("./routes/hantu");
 
 const dotenv = require("dotenv");
 dotenv.config();
@@ -40,7 +39,6 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
 app.use("/api/test", testRouter);
-app.use("/api/hantu", hantuRouter);
 
 app.use("/api/main", mainRouter);
 app.use("/api/fomc", fomcRouter);
