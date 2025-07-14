@@ -7,12 +7,23 @@ const cors = require("cors");
 require("dotenv").config();
 
 var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
 const testRouter = require("./routes/test");
 var hantuRouter = require("./routes/hantu");
 
 const dotenv = require("dotenv");
 dotenv.config();
+
+const mainRouter = require("./routes/main");
+const fomcRouter = require("./routes/fomc");
+const earningsRouter = require("./routes/earnings");
+const navRouter = require("./routes/nav");
+const calendarRouter = require("./routes/calendar");
+const companiesRouter = require("./routes/companies");
+const favoritesRouter = require("./routes/favorites");
+const notificationsRouter = require("./routes/notifications");
+const telegramRouter = require("./routes/telegram");
+const userRouter = require("./routes/user");
+
 
 var app = express();
 
@@ -28,9 +39,19 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
-app.use("/users", usersRouter);
 app.use("/api/test", testRouter);
 app.use("/api/hantu", hantuRouter);
+
+app.use("/api/main", mainRouter);
+app.use("/api/fomc", fomcRouter);
+app.use("/api/earnings", earningsRouter);
+app.use("/api/nav", navRouter);
+app.use("/api/calendar", calendarRouter);
+app.use("/api/companies", companiesRouter);
+app.use("/api/favorites", favoritesRouter);
+app.use("/api/notifications", notificationsRouter);
+app.use("/api/telegram", telegramRouter);
+app.use("/api/user", userRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
