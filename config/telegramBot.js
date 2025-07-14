@@ -5,6 +5,12 @@ const axios = require("axios");
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+
+if (!token) {
+    console.error("❌ TELEGRAM_BOT_TOKEN is missing! 봇을 실행할 수 없습니다.");
+    process.exit(1);
+}
+
 const bot = new TelegramBot(token, { polling: true });
 
 // 메시지 수신 핸들러
