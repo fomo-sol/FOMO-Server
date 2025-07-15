@@ -37,13 +37,19 @@ exports.injectBarerToken = async(req, res) => {
         const appSecret = process.env.APP_SECRET;
         // 일단은 SYMB, BYMD 만 넣어주면 됨
 
-        const { AUTH = "", SYMB, GUBN = "0", BYMD, MODP } = req.query;
+        let { AUTH = "", SYMB, GUBN = "0", BYMD, MODP } = req.query;
 
         let EXCD;
         if (SYMB === "SPY") {
             EXCD = "NAS";
         } else {
             EXCD = await earningsRepository.getEarningsEXCD(SYMB);
+        }
+
+        if (SYMB === "BRK-B") {
+            SYMB = "BRK/B";
+        }  else if (SYMB === "BF-B") {
+            SYMB = "BF/B";
         }
 
         const queryParams = new URLSearchParams({
