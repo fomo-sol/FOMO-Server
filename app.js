@@ -11,6 +11,9 @@ require("./config/telegramBot");
 var indexRouter = require("./routes/index");
 const testRouter = require("./routes/test");
 
+const dotenv = require("dotenv");
+dotenv.config();
+
 const mainRouter = require("./routes/main");
 const fomcRouter = require("./routes/fomc");
 const earningsRouter = require("./routes/earnings");
