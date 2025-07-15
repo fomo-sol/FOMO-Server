@@ -20,6 +20,69 @@ const dummyEarnings = [
     },
 ];
 
+const getEarningsById = async (id) => {
+    try {
+        const conn = await pool.getConnection();
+        const rows = await conn.query(
+            `SELECT
+                 s.id,
+                 s.stock_name,
+                 s.stock_name_kr,
+                 s.stock_symbol,
+                 s.stock_cik,
+                 s.stock_excd,
+                 s.stock_rank,
+                 s.stock_logo_img,
+                 s.sector_id,
+                 s.industry_id,
+                 sf.id AS finance_id,
+                 sf.fin_release_date,
+                 sf.fin_period_date,
+                 sf.fin_eps_value,
+                 sf.fin_eps_forest,
+                 sf.fin_revenue_value,
+                 sf.fin_revenue_forest,
+                 sf.fin_info_name,
+                 sf.created_at
+             FROM stocks s
+                      LEFT JOIN stock_finances sf ON s.id = sf.stock_id
+             WHERE s.id = '${id}';
+            `,
+            [id]
+        );
+        conn.release();
+
+        const stock = {
+            id: rows[0].id,
+            stock_name: rows[0].stock_name,
+            stock_name_kr: rows[0].stock_name_kr,
+            stock_symbol: rows[0].stock_symbol,
+            stock_cik: rows[0].stock_cik,
+            stock_excd: rows[0].stock_excd,
+            stock_rank: rows[0].stock_rank,
+            stock_logo_img: rows[0].stock_logo_img,
+            sector_id: rows[0].sector_id,
+            industry_id: rows[0].industry_id,
+        };
+
+        const finances = rows.map(row => ({
+            id: row.finance_id,
+            fin_release_date: row.fin_release_date,
+            fin_period_date: row.fin_period_date,
+            fin_eps_value: row.fin_eps_value,
+            fin_eps_forest: row.fin_eps_forest,
+            fin_revenue_value: row.fin_revenue_value,
+            fin_revenue_forest: row.fin_revenue_forest,
+            fin_info_name: row.fin_info_name,
+            created_at: row.created_at,
+        }));
+        return {stock, finances};
+
+    } catch (err) {
+        console.error("getEarningsById error:", err);
+        throw err;
+    }
+};
 
 const getEarningsEXCD = async (symbol) => {
     try {
@@ -56,6 +119,7 @@ const langContent = {
 };
 
 exports.getEarningsEXCD = getEarningsEXCD;
+exports.getEarningsById = getEarningsById;
 
 exports.getAllEarnings = async () => dummyEarnings;
 
@@ -72,8 +136,6 @@ exports.searchEarnings = async (keyword) =>
         item.company_name.toLowerCase().includes(keyword.toLowerCase())
     );
 
-exports.getEarningsById = async (id) =>
-    dummyEarnings.find(item => item.id === id);
 
 exports.getEarningsLangContent = async (id, lang) =>
     langContent[id]?.[lang] || null;
