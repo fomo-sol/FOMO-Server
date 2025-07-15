@@ -1,21 +1,16 @@
 const favoritesRepo = require("../repository/favoritesRepository");
 
-exports.fetchFavorites = async () => {
-    return await favoritesRepo.getFavorites();
+exports.fetchFavorites = async (user_id) => {
+    return await favoritesRepo.getFavorites(user_id);
 };
 
-exports.createFavorite = async (favorite) => {
-    return await favoritesRepo.addFavorite(favorite);
+exports.addFavorites = async (favoritesList) => {
+    const hasDuplicate = await favoritesRepo.checkDuplicateFavorites(favoritesList);
+    if (hasDuplicate) return "DUPLICATE";
+
+    return await favoritesRepo.insertFavorites(favoritesList);
 };
 
-exports.removeFavorite = async (id) => {
-    return await favoritesRepo.deleteFavorite(id);
-};
-
-exports.initFavorites = async (list) => {
-    return await favoritesRepo.initFavorites(list);
-};
-
-exports.getFavoritesCount = async () => {
-    return await favoritesRepo.countFavorites();
+exports.removeFavorite = async (stock_id, user_id) => {
+    return await favoritesRepo.deleteFavorite(stock_id, user_id);
 };
