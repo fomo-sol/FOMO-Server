@@ -20,6 +20,70 @@ const dummyEarnings = [
     },
 ];
 
+
+async function getStockFinancesByStockId(stockId) {
+    try {
+        const conn = await pool.getConnection();
+
+        const rows = await conn.query(
+            `
+            SELECT 
+                id,
+                stock_id,
+                fin_release_date,
+                fin_period_date,
+                fin_eps_value,
+                fin_eps_forest,
+                fin_revenue_value,
+                fin_revenue_forest,
+                fin_info_name
+            FROM stock_finances
+            WHERE stock_id = ?
+            ORDER BY fin_release_date DESC
+            LIMIT 2
+            `,
+            [stockId]
+        );
+
+        conn.release();
+        return rows;
+
+    } catch (err) {
+        console.error("getStockFinancesByStockId DB Error:", err);
+        throw err;
+    }
+}
+
+const getEarningsDetailFinanceById = async (earningFinance) => {
+    try {
+        // 여러 기업 정보를 순회하며 각각 최신 2개 재무 데이터를 가져옴
+        const results = await Promise.all(
+            earningFinance.map(async (stock) => {
+                const stockId = stock.id;
+
+                // 예: DB 쿼리 or API 요청
+                const finances = await getStockFinancesByStockId(stockId);
+
+                // 최신 fin_release_date 기준 정렬 후 상위 2개만 추출
+                const sortedFinances = finances
+                    .sort((a, b) => new Date(b.fin_release_date) - new Date(a.fin_release_date))
+                    .slice(0, 2);
+
+                return {
+                    ...stock,
+                    finances: sortedFinances,
+                };
+            })
+        );
+
+        return results;
+    } catch (err) {
+        console.error("getEarningsDetailFinanceById err", err);
+        throw err;
+    }
+};
+
+
 const getEarningsById = async (id) => {
     try {
         const conn = await pool.getConnection();
@@ -84,6 +148,42 @@ const getEarningsById = async (id) => {
     }
 };
 
+
+const getStocksOrderRankedByOffset = async (limit, offset) => {
+    const conn = await pool.getConnection();
+
+    try {
+        const rows = await conn.query(
+            `
+            SELECT
+                s.id,
+                s.stock_name AS name,
+                s.stock_name_kr AS name_kr,
+                s.stock_symbol AS symbol,
+                s.stock_rank AS rank,
+                s.stock_logo_img AS logo,
+                sec.sector_name AS sector,
+                ind.industries_name AS industry
+            FROM stocks s
+            JOIN sectors sec ON s.sector_id = sec.id
+            JOIN industries ind ON s.industry_id = ind.id
+            ORDER BY s.stock_rank ASC
+            LIMIT ? OFFSET ?
+            `,
+            [limit, offset]
+        );
+        conn.release();
+        console.log("쿼리 결과 rows →", rows);
+        return rows;
+    } catch (err) {
+        console.error("getStocksOrderRankedByOffset error:", err);
+        throw err;
+    } finally {
+        conn.release();
+    }
+};
+
+
 const getEarningsEXCD = async (symbol) => {
     try {
         const conn = await pool.getConnection();
@@ -120,22 +220,10 @@ const langContent = {
 
 exports.getEarningsEXCD = getEarningsEXCD;
 exports.getEarningsById = getEarningsById;
+exports.getStocksOrderRankedByOffset = getStocksOrderRankedByOffset;
+exports.getEarningsDetailFinanceById = getEarningsDetailFinanceById;
 
 exports.getAllEarnings = async () => dummyEarnings;
-
-exports.getFavoriteEarnings = async () =>
-    dummyEarnings.filter(item => item.favorite);
-
-exports.getSortedEarnings = async () =>
-    [...dummyEarnings].sort((a, b) =>
-        new Date(a.announcement_date) - new Date(b.announcement_date)
-    );
-
-exports.searchEarnings = async (keyword) =>
-    dummyEarnings.filter(item =>
-        item.company_name.toLowerCase().includes(keyword.toLowerCase())
-    );
-
 
 exports.getEarningsLangContent = async (id, lang) =>
     langContent[id]?.[lang] || null;

@@ -26,22 +26,25 @@ function formatDate(date) {
 }
 
 
-exports.fetchEarningsList = async (query) => {
-    const { filter, sort, search } = query;
+exports.fetchEarningsList = async ({ page, limit }) => {
 
-    if (filter === "favorite") {
-        return await earningsRepository.getFavoriteEarnings();
-    }
+    const offset = (page - 1) * limit;
 
-    if (sort === "announcement_date") {
-        return await earningsRepository.getSortedEarnings();
-    }
+    const earningsStocks = await earningsRepository.getStocksOrderRankedByOffset(limit, offset);
 
-    if (search) {
-        return await earningsRepository.searchEarnings(search);
-    }
+    const earningsDetailFinances = await earningsRepository.getEarningsDetailFinanceById(earningsStocks);
 
-    return await earningsRepository.getAllEarnings();
+    const merged = earningsStocks.map(stock => {
+        const detail = earningsDetailFinances.find(fin => fin.id === stock.id);
+        console.log(detail);
+        return {
+            ...stock,
+            finances: detail ? detail.finances : [],
+        };
+    });
+
+
+    return {merged};
 };
 
 exports.fetchEarningsById = async (id) => {

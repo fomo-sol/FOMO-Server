@@ -67,6 +67,7 @@ exports.injectBarerToken = async(req, res) => {
         }
         const getToken = myGetToken.access_token;
 
+
         const response = await fetch(
             `https://openapivts.koreainvestment.com:29443/uapi/overseas-price/v1/quotations/dailyprice?${queryParams}`,
             {
@@ -89,18 +90,34 @@ exports.injectBarerToken = async(req, res) => {
     }
 };
 
-// ("/api/earnings/ ? ")
+// ("/api/earnings/")
 exports.getEarningsList = async (req, res) => {
     try {
-        const data = await earningsService.fetchEarningsList(req.query);
-        res.json({ success: true, data });
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+
+        const rawData = await earningsService.fetchEarningsList({ page, limit });
+
+        // BigInt → string 변환 함수
+        const normalizeBigInt = (obj) => {
+            return JSON.parse(
+                JSON.stringify(obj, (_, value) =>
+                    typeof value === "bigint" ? value.toString() : value
+                )
+            );
+        };
+
+        res.json({
+            success: true,
+            data: normalizeBigInt(rawData)
+        });
     } catch (err) {
         console.error("Earnings list error:", err);
         res.status(500).json({ success: false, message: "서버 오류" });
     }
 };
 
-// ("/api/earnings/ ? ")
+// ("/api/earnings/:id ? ")
 exports.getEarningsById = async (req, res) => {
     try {
         const data = await earningsService.fetchEarningsById(req.params.id);
