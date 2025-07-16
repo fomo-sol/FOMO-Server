@@ -36,7 +36,6 @@ exports.fetchEarningsList = async ({ page, limit }) => {
 
     const merged = earningsStocks.map(stock => {
         const detail = earningsDetailFinances.find(fin => fin.id === stock.id);
-        console.log(detail);
         return {
             ...stock,
             finances: detail ? detail.finances : [],

@@ -173,7 +173,6 @@ const getStocksOrderRankedByOffset = async (limit, offset) => {
             [limit, offset]
         );
         conn.release();
-        console.log("쿼리 결과 rows →", rows);
         return rows;
     } catch (err) {
         console.error("getStocksOrderRankedByOffset error:", err);

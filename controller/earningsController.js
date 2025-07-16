@@ -40,8 +40,10 @@ exports.injectBarerToken = async(req, res) => {
         let { AUTH = "", SYMB, GUBN = "0", BYMD, MODP } = req.query;
 
         let EXCD;
-        if (SYMB === "SPY") {
+        if (SYMB === "QQQ") {
             EXCD = "NAS";
+        } else if (SYMB === "SPY") {
+            EXCD = "AMS"
         } else {
             EXCD = await earningsRepository.getEarningsEXCD(SYMB);
         }
@@ -117,7 +119,7 @@ exports.getEarningsList = async (req, res) => {
     }
 };
 
-// ("/api/earnings/:id ? ")
+// ("/api/earnings/:id ? ") // fomc 상세 페이지 실적 모음
 exports.getEarningsById = async (req, res) => {
     try {
         const data = await earningsService.fetchEarningsById(req.params.id);
