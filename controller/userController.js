@@ -49,9 +49,38 @@ exports.logoutUser = async (req, res) => {
         res.status(500).json({ success: false, message: "로그아웃 실패" });
     }
 };
+
 exports.getUserInfo = async (req, res) => {
     res.status(200).json({
         success: true,
         data: req.user,
     });
+};
+
+exports.registerFcmToken = async (req, res, next) => {
+    try {
+        const user_id = req.user?.id;
+        const { token } = req.body;
+
+        if (!user_id || !token) {
+            console.warn("[WARN] user_id 또는 token 누락:", req.user, token);
+            return res.status(400).json({
+                success: false,
+                message: "user_id와 token은 필수입니다.",
+            });
+        }
+
+        console.log("[DEBUG] FCM 토큰 등록 요청:", user_id, token);
+        console.log("🔍 저장 전 확인:", user_id, token);
+
+        await userService.saveFcmToken(user_id, token);
+
+        return res.status(200).json({
+            success: true,
+            message: "FCM 토큰이 등록되었습니다.",
+        });
+    } catch (err) {
+        console.error("[CONTROLLER ERROR] registerFcmToken 실패:", err.stack || err);
+        next(err);
+    }
 };

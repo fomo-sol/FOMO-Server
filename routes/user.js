@@ -11,5 +11,6 @@ router.post("/register", (req, res, next) => {
 router.post("/login", userController.loginUser);
 router.post("/logout", userController.logoutUser);
 router.get("/me", authenticate, userController.getUserInfo);
+router.post("/fcm", authenticate, userController.registerFcmToken);
 
 module.exports = router;
