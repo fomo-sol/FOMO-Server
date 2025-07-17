@@ -119,7 +119,7 @@ exports.getEarningsList = async (req, res) => {
     }
 };
 
-// ("/api/earnings/:id ? ") // fomc 상세 페이지 실적 모음
+// ("/api/earnings/:id ? ") // fomc 상세 페이지 실적 모음 stockID
 exports.getEarningsById = async (req, res) => {
     try {
         const data = await earningsService.fetchEarningsById(req.params.id);
