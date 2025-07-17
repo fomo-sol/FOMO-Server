@@ -42,3 +42,28 @@ exports.findByEmail = async (email) => {
         throw err;
     }
 };
+
+exports.updateFcmTokenByUserId = async (userId, token) => {
+    try {
+        const result = await pool.execute(
+            `UPDATE users SET fcm_token = ? WHERE id = ?`,
+            [token, userId]
+        );
+
+        console.log("[DEBUG] affectedRows:", result.affectedRows);
+
+        if (result.affectedRows === 0) {
+            const err = new Error("해당 유저가 존재하지 않습니다.");
+            err.code = 404;
+            throw err;
+        }
+
+        return {
+            success: true,
+            affectedRows: result.affectedRows,
+        };
+    } catch (err) {
+        console.error("[REPOSITORY ERROR] updateFcmTokenByUserId 실패:", err.stack || err);
+        throw err;
+    }
+};

@@ -1,19 +1,28 @@
-var createError = require("http-errors");
-var express = require("express");
-var path = require("path");
-var cookieParser = require("cookie-parser");
-var logger = require("morgan");
+const createError = require("http-errors");
+const express = require("express");
+const path = require("path");
+const cookieParser = require("cookie-parser");
+const logger = require("morgan");
 const cors = require("cors");
-var app = express();
-require("dotenv").config();
-require("./config/telegramBot");
-
-var indexRouter = require("./routes/index");
-const testRouter = require("./routes/test");
-
 const dotenv = require("dotenv");
-dotenv.config();
 
+dotenv.config(); // env 제일 먼저 로드
+require("./config/telegramBot"); // 이후 초기화
+
+const app = express();
+
+// CORS 설정
+const corsOptions = {
+  origin:
+      process.env.NODE_ENV === "production"
+          ? "https://fomo.example.com"
+          : "http://localhost:3000",
+  credentials: false,
+};
+
+// 라우터
+const indexRouter = require("./routes/index");
+const testRouter = require("./routes/test");
 const mainRouter = require("./routes/main");
 const fomcRouter = require("./routes/fomc");
 const earningsRouter = require("./routes/earnings");
@@ -25,20 +34,21 @@ const notificationsRouter = require("./routes/notifications");
 const telegramRouter = require("./routes/telegram");
 const userRouter = require("./routes/user");
 
-// view engine setup
+// view 설정
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
+// 미들웨어
 app.use(logger("dev"));
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
+// 라우팅
 app.use("/", indexRouter);
 app.use("/api/test", testRouter);
-
 app.use("/api/main", mainRouter);
 app.use("/api/fomc", fomcRouter);
 app.use("/api/earnings", earningsRouter);
@@ -50,18 +60,15 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/telegram", telegramRouter);
 app.use("/api/user", userRouter);
 
-// catch 404 and forward to error handler
+// 404 핸들러
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
-// error handler
+// 에러 핸들러
 app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
-
-  // render the error page
   res.status(err.status || 500);
   res.render("error");
 });
