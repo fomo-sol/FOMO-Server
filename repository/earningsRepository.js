@@ -1,25 +1,4 @@
-
 const pool = require("../config/db");
-
-const dummyEarnings = [
-    {
-        id: "1",
-        company_name: "Apple Inc.",
-        stock_symbol: "AAPL",
-        announcement_date: "2025-07-30",
-        earnings_summary: "2025년 2분기 실적 발표 예정",
-        favorite: true,
-    },
-    {
-        id: "2",
-        company_name: "Tesla Inc.",
-        stock_symbol: "TSLA",
-        announcement_date: "2025-07-28",
-        earnings_summary: "매출 증가와 EPS 상승",
-        favorite: false,
-    },
-];
-
 
 async function getStockFinancesByStockId(stockId) {
     try {
@@ -221,8 +200,5 @@ exports.getEarningsEXCD = getEarningsEXCD;
 exports.getEarningsById = getEarningsById;
 exports.getStocksOrderRankedByOffset = getStocksOrderRankedByOffset;
 exports.getEarningsDetailFinanceById = getEarningsDetailFinanceById;
-
-exports.getAllEarnings = async () => dummyEarnings;
-
 exports.getEarningsLangContent = async (id, lang) =>
     langContent[id]?.[lang] || null;

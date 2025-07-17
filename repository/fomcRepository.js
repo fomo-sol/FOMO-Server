@@ -1,25 +1,44 @@
-const db = require("../config/db");
+const pool = require("../config/db");
+
+async function getFomcMinute({year}) {
+    try {
+        console.log(year)
+        const conn = await pool.getConnection();
+        const query = `
+            SELECT *
+            FROM fomc_minutes
+            WHERE YEAR(fomc_release_date) = ?
+            ORDER BY fomc_release_date ASC
+        `;
+        const rows = await conn.query(query, [year]);
+        conn.release();
+        return rows;
+    } catch (err) {
+        console.error("Error fetching FOMC getFomcMinutes", err);
+        throw err;
+    }
+}
+
+async function getFomcDecision({year}) {
+    try {
+        const conn = await pool.getConnection();
+
+        const query = `
+            SELECT *
+            FROM fomc_rate_decisions
+            WHERE YEAR(fed_release_date) = ?
+            ORDER BY fed_release_date ASC
+        `;
+        const rows = await conn.query(query, [year]);
+        conn.release();
+        return rows;
+    } catch (err) {
+        console.error('Error fetching FOMC decisions:', err);
+        throw err;
+    }
+}
 
 // 더미 데이터
-const dummyData = [
-    {
-        id: "1",
-        fomc_minutes_name: "2025년 6월 FOMC 회의",
-        fomc_release_date: "2025-06-12",
-        fomc_interest_rate: 5.25,
-        fomc_status: true,
-        created_at: "2025-06-10T12:00:00Z",
-    },
-    {
-        id: "2",
-        fomc_minutes_name: "2025년 4월 FOMC 회의",
-        fomc_release_date: "2025-04-24",
-        fomc_interest_rate: 5.00,
-        fomc_status: true,
-        created_at: "2025-04-20T12:00:00Z",
-    },
-];
-
 const rateContent = {
     "1": {
         ko: "2025년 6월 기준금리 발표문 (한국어)",
@@ -52,3 +71,6 @@ exports.fetchFomcContentByLang = async (id, type, lang) => {
     const contentSet = base?.[id];
     return contentSet?.[lang] || null;
 };
+
+exports.getFomcMinute = getFomcMinute;
+exports.getFomcDecision = getFomcDecision;
