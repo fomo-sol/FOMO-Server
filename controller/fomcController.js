@@ -1,28 +1,30 @@
 const fomcService = require("../service/fomcService");
 
-exports.getFomcList = async (req, res) => {
+// /api/fomc/minutes  //fomc 의사록
+exports.getFomcMinutesList = async function (req, res) {
     try {
-        const data = await fomcService.getFomcList();
-        res.status(200).json({ success: true, data });
-    } catch (err) {
-        console.error("FOMC 목록 조회 오류:", err);
-        res.status(500).json({ success: false, message: "서버 오류" });
-    }
-};
-
-exports.getFomcById = async (req, res) => {
-    try {
-        const id = req.params.id;
-        const data = await fomcService.getFomcDetailById(id);
-
-        if (!data) {
-            return res.status(404).json({ success: false, message: "존재하지 않는 FOMC ID입니다" });
+        const year = req.query.year;
+        if (!year) {
+            return res.status(400).json({ success: false, message: "year 파라미터가 필요합니다." });
         }
-
+        const data = await fomcService.getFomcMinutesList(year);
         res.status(200).json({ success: true, data });
     } catch (err) {
-        console.error("FOMC 상세 조회 오류:", err);
-        res.status(500).json({ success: false, message: "서버 오류" });
+        console.error("FOMC 의사록 조회 오류", err);
+    }
+}
+
+// /api/fomc/decisions   //fomc 결정 성명서
+exports.getFomcDecisionsList = async function (req, res) {
+    try {
+        const year = req.query.year;
+        if (!year) {
+            return res.status(400).json({ success: false, message: "year 파라미터가 필요합니다." });
+        }
+        const data = await fomcService.getFomcDecisionsList(year);
+        res.status(200).json({success: true, data});
+    } catch (err) {
+        console.error("FOMC 결정 조회")
     }
 };
 
