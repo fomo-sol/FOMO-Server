@@ -1,39 +1,62 @@
 const redis = require("../config/redis");
 
-const TOKEN_KEY = "hantu_access_token";
+// 두 개 키 선언
+const REALTIME_TOKEN_KEY = "hantu_realtime_token";
+const PERIOD_TOKEN_KEY = "hantu_period_token";
 
-/**
- * 토큰 저장 (2일 = 172800초)
- */
-async function saveTokenToRedis(token) {
+async function saveRealTimeToken(token) {
     try {
         const tokenStr = typeof token === "string" ? token : JSON.stringify(token);
-        await redis.set(TOKEN_KEY, tokenStr, "EX", 172800);
-        console.log("Token saved to Redis");
+        await redis.set(REALTIME_TOKEN_KEY, tokenStr, "EX", 172800);
+        console.log("RealTime Token saved to Redis");
     } catch (error) {
-        console.error("Error saving token to Redis:", error);
+        console.error("Error saving RealTime token to Redis:", error);
     }
 }
 
-/**
- * 토큰 조회
- */
-async function getTokenFromRedis() {
+async function getRealTimeToken() {
     try {
-        const tokenStr = await redis.get(TOKEN_KEY);
+        const tokenStr = await redis.get(REALTIME_TOKEN_KEY);
         if (!tokenStr) return null;
         try {
             return JSON.parse(tokenStr);
         } catch {
-            return tokenStr; // 문자열 그대로 반환
+            return tokenStr;
         }
     } catch (error) {
-        console.error("Error getting token from Redis:", error);
+        console.error("Error getting RealTime token from Redis:", error);
+        return null;
+    }
+}
+
+async function savePeriodToken(token) {
+    try {
+        const tokenStr = typeof token === "string" ? token : JSON.stringify(token);
+        await redis.set(PERIOD_TOKEN_KEY, tokenStr, "EX", 172800);
+        console.log("Period Token saved to Redis");
+    } catch (error) {
+        console.error("Error saving Period token to Redis:", error);
+    }
+}
+
+async function getPeriodToken() {
+    try {
+        const tokenStr = await redis.get(PERIOD_TOKEN_KEY);
+        if (!tokenStr) return null;
+        try {
+            return JSON.parse(tokenStr);
+        } catch {
+            return tokenStr;
+        }
+    } catch (error) {
+        console.error("Error getting Period token from Redis:", error);
         return null;
     }
 }
 
 module.exports = {
-    saveTokenToRedis,
-    getTokenFromRedis,
+    saveRealTimeToken,
+    getRealTimeToken,
+    savePeriodToken,
+    getPeriodToken,
 };

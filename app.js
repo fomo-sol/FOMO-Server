@@ -50,6 +50,9 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/telegram", telegramRouter);
 app.use("/api/user", userRouter);
 
+// tokenScheduler 스케줄러 실행 (토큰 자동 갱신)
+require("./service/Scheduler/tokenScheduler");
+
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
