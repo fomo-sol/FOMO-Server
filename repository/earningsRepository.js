@@ -1,5 +1,31 @@
 const pool = require("../config/db");
 
+
+async function getStockIdBySymbol(symbol) {
+    try {
+        const conn = await pool.getConnection();
+        const rows = await conn.query(
+            `
+                SELECT id
+                FROM stocks
+                WHERE stock_symbol = ? LIMIT 1
+            `,
+            [symbol]
+        );
+        conn.release(); // 연결 해제 꼭 필요
+
+        if (rows.length === 0) {
+            throw new Error(`Symbol not found: ${symbol}`);
+        }
+
+        return rows;
+    } catch (err) {
+        console.error("not found symbol id", err);
+        throw err;
+    }
+}
+
+
 async function getStockFinancesByStockId(stockId) {
     try {
         const conn = await pool.getConnection();
@@ -196,6 +222,7 @@ const langContent = {
     },
 };
 
+exports.getStockIdBySymbol = getStockIdBySymbol;
 exports.getEarningsEXCD = getEarningsEXCD;
 exports.getEarningsById = getEarningsById;
 exports.getStocksOrderRankedByOffset = getStocksOrderRankedByOffset;
