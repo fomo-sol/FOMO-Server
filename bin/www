@@ -21,6 +21,22 @@ app.set("port", port);
 
 var server = http.createServer(app);
 
+// WebSocket 서버 추가
+const WebSocket = require("ws");
+const wss = new WebSocket.Server({ server, path: "/wsClient" });
+const wsClientHandler = require("../bWebSocket/wsClientHandler");
+wss.on("connection", wsClientHandler.handleConnection);
+
+// 한국투자증권 WebSocket 연결 (해외주식만)
+const { connectOverseasWS } = require("../bWebSocket/wsHantuHandler");
+const appKey = process.env.APP_KEY;
+const appSecret = process.env.APP_SECRET;
+if (!appKey || !appSecret) {
+  console.error("APP_KEY, APP_SECRET 환경변수를 설정하세요.");
+  process.exit(1);
+}
+connectOverseasWS(appKey, appSecret, "DAMSSPY");
+
 /**
  * Listen on provided port, on all network interfaces.
  */
