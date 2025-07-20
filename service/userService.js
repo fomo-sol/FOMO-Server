@@ -44,6 +44,22 @@ exports.logoutUser = async () => {
     // 나중에 세션 파기나 토큰 블랙리스트 등을 구현 가능
     return "로그아웃 되었습니다.";
 };
+
 exports.getUserInfo = async () => {
     return await userRepository.getUserInfo();
+};
+
+exports.saveFcmToken = async (userId, fcm_token) => {
+    try {
+        const result = await userRepository.updateFcmTokenByUserId(userId, fcm_token);
+
+        console.log("[DEBUG] saveFcmToken result:", result);
+
+        if (result.affectedRows === 0) {
+            throw new Error("FCM 토큰 저장 실패: 유저 없음");
+        }
+    } catch (err) {
+        console.error("[SERVICE ERROR] saveFcmToken 실패:", err.stack || err);
+        throw err;
+    }
 };

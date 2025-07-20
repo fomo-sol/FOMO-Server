@@ -247,6 +247,7 @@ exports.getEarningsList = async (req, res) => {
     }
 };
 
+
 // ("/api/earnings/:symbol ? ") // fomc 상세 페이지 실적 모음
 exports.getEarningsBySymbol = async (req, res) => {
     try {

@@ -50,8 +50,12 @@ exports.fetchEarningsById = async (id) => {
     const earningFinances = await earningsRepository.getEarningsById(id);
 
     const stock = {
-        id: earningFinances.id,
-        stock_name: earningFinances.stock_name,
+        id: earningFinances.stock.id,
+        stock_name: earningFinances.stock.stock_name,
+        stock_name_kr: earningFinances.stock.stock_name_kr,
+        stock_logo: earningFinances.stock.stock_logo_img,
+        stock_symbol: earningFinances.stock.stock_symbol,
+        stock_excd: earningFinances.stock.stock_excd,
     };
 
     const finances = earningFinances.finances.map(fin => ({
