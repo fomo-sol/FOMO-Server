@@ -15,7 +15,7 @@ jobs:
           script: |
             set -e
             cd ~/fomo-app/server
-            echo "${{ secrets.ENV_FILE_SERVER }}" > .env
+            printf "${{ secrets.ENV_FILE_SERVER }}" > .env
             git fetch
             git reset --hard origin/main
             npm install
