@@ -51,13 +51,18 @@ exports.getUserInfo = async () => {
 
 exports.saveFcmToken = async (userId, fcm_token) => {
     try {
-        const result = await userRepository.updateFcmTokenByUserId(userId, fcm_token);
+        // 토큰 중복 여부 확인
+        const existing = await userRepository.findByFcmToken(fcm_token);
 
-        console.log("[DEBUG] saveFcmToken result:", result);
-
-        if (result.affectedRows === 0) {
-            throw new Error("FCM 토큰 저장 실패: 유저 없음");
+        // 다른 유저가 이미 사용 중이라면 해당 유저 토큰 제거
+        if (existing && existing.id !== userId) {
+            console.warn("⚠️ 다른 유저가 이미 같은 FCM 토큰을 사용 중:", existing.id);
+            await userRepository.removeFcmToken(existing.id);
         }
+
+        // 현재 유저에게 토큰 저장
+        await userRepository.saveFcmToken(userId, fcm_token);
+        console.log("✅ FCM 토큰 저장 완료:", fcm_token);
     } catch (err) {
         console.error("[SERVICE ERROR] saveFcmToken 실패:", err.stack || err);
         throw err;

@@ -17,6 +17,7 @@
     "dotenv": "^17.2.0",
     "ejs": "~2.6.1",
     "express": "~4.16.1",
+    "firebase-admin": "^13.4.0",
     "http-errors": "~1.6.3",
     "jsonwebtoken": "^9.0.2",
     "mariadb": "^3.4.4",

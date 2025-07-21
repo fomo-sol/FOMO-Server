@@ -8,6 +8,7 @@ const dotenv = require("dotenv");
 
 dotenv.config(); // env 제일 먼저 로드
 require("./config/telegramBot"); // 이후 초기화
+require("./jobs/dailyNotificationJob");
 
 const app = express();
 
