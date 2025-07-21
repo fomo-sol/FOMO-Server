@@ -1,0 +1,22 @@
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and deploy server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/fomo-app/server
+            echo "${{ secrets.ENV_FILE_SERVER }}" > .env
+            git fetch
+            git reset --hard origin/main
+            npm install
+            pm2 restart fomo-server --update-env
