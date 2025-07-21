@@ -43,27 +43,47 @@ exports.findByEmail = async (email) => {
     }
 };
 
-exports.updateFcmTokenByUserId = async (userId, token) => {
-    try {
-        const result = await pool.execute(
-            `UPDATE users SET fcm_token = ? WHERE id = ?`,
-            [token, userId]
-        );
+exports.findById = async (id) => {
+    const rows = await pool.query(
+        `SELECT * FROM users WHERE id = ?`,
+        [id]
+    );
 
-        console.log("[DEBUG] affectedRows:", result.affectedRows);
+    console.log("✅ userRepository 결과:", rows);
 
-        if (result.affectedRows === 0) {
-            const err = new Error("해당 유저가 존재하지 않습니다.");
-            err.code = 404;
-            throw err;
-        }
+    return rows[0]; // 배열에서 첫 번째 유저
+};
 
-        return {
-            success: true,
-            affectedRows: result.affectedRows,
-        };
-    } catch (err) {
-        console.error("[REPOSITORY ERROR] updateFcmTokenByUserId 실패:", err.stack || err);
-        throw err;
-    }
+exports.findAllWithFcmToken = async () => {
+    const rows = await pool.query(`
+        SELECT id, fcm_token 
+        FROM users 
+        WHERE fcm_token IS NOT NULL
+    `);
+    return rows; // 배열 그대로 반환
+};
+
+// 중복 토큰 보유 사용자 조회
+exports.findByFcmToken = async (token) => {
+    const rows = await pool.query(
+        `SELECT id FROM users WHERE fcm_token = ?`,
+        [token]
+    );
+    return rows[0];
+};
+
+// 다른 유저의 토큰 제거
+exports.removeFcmToken = async (userId) => {
+    await pool.query(
+        `UPDATE users SET fcm_token = NULL WHERE id = ?`,
+        [userId]
+    );
+};
+
+// 내 계정에 토큰 저장(갱신)
+exports.saveFcmToken = async (userId, token) => {
+    await pool.query(
+        `UPDATE users SET fcm_token = ? WHERE id = ?`,
+        [token, userId]
+    );
 };

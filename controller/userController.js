@@ -71,14 +71,21 @@ exports.registerFcmToken = async (req, res, next) => {
         }
 
         console.log("[DEBUG] FCM 토큰 등록 요청:", user_id, token);
-        console.log("🔍 저장 전 확인:", user_id, token);
 
+        // FCM 토큰 갱신 (로그인 시)
         await userService.saveFcmToken(user_id, token);
 
         return res.status(200).json({
             success: true,
             message: "FCM 토큰이 등록되었습니다.",
         });
+
+        // 중복 검사: 이미 등록된 토큰이 있다면 → 다른 유저의 토큰 삭제
+        const existing = await userService.findUserByFcmToken(token);
+        if (existing && existing.id !== user_id) {
+            console.warn("⚠️ 중복 토큰 발견 → 기존 유저의 FCM 토큰 제거:", existing.id);
+            await userService.removeFcmToken(existing.id);
+        }
     } catch (err) {
         console.error("[CONTROLLER ERROR] registerFcmToken 실패:", err.stack || err);
         next(err);
