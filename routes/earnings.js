@@ -19,6 +19,9 @@ router.get("/", earningsController.getEarningsList);     // /api/earnings
 // 실적발표 상세 페이지
 router.get("/:symbol", earningsController.getEarningsBySymbol);     // /api/earnings/:symbol
 
+//  /api/earnings/favorites/:userId
+router.get("/favorites/:id", earningsController.getMyFavoritesStocks);
+
 // 실적발표 언어별 콘텐츠 조회 (예: /api/earnings/:id/ko)
 router.get("/:id/:lang", earningsController.getEarningsLangContent);
 

@@ -46,6 +46,20 @@ exports.fetchEarningsList = async ({ page, limit }) => {
     return {merged};
 };
 
+exports.getMyFavoritesStockFinances = async (myFavoritesStocks) => {
+    const earningsDetailFinances = await earningsRepository.getMyFavoritesStocks(myFavoritesStocks);
+
+    const merged = earningsDetailFinances.map(stock => {
+        const detail = earningsDetailFinances.find(fin => fin.id === stock.id);
+        return {
+            ...stock,
+            finances: detail ? detail.finances : [],
+        };
+    });
+
+    return {merged};
+}
+
 exports.fetchEarningsById = async (id) => {
     const earningFinances = await earningsRepository.getEarningsById(id);
 
