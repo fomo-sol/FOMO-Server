@@ -1,6 +1,8 @@
 
 const earningsService = require("../service/earningsService");
 const earningsRepository = require("../repository/earningsRepository");
+const favoriteService = require("../service/favoritesService");
+
 const {saveTokenToRedis, getTokenFromRedis, savePeriodToken, saveRealTimeToken, getPeriodToken} = require("../repository/redisRepository");
 
 // ("/api/earnings/hantu/realTimeToken")
@@ -219,6 +221,31 @@ exports.getDailyChart = async(req, res) => {
         res.status(500).json({ success: false, message: "Error in getDailyChart 오류" });
     }
 };
+
+exports.getMyFavoritesStocks = async (req, res) => {
+    try {
+
+    const { id } = req.params;
+    const myFavoritesStocks = await favoriteService.fetchFavorites(id);
+    const data = await earningsService.getMyFavoritesStockFinances(myFavoritesStocks);
+
+        const normalizeBigInt = (obj) => {
+            return JSON.parse(
+                JSON.stringify(obj, (_, value) =>
+                    typeof value === "bigint" ? value.toString() : value
+                )
+            );
+        };
+
+        res.json({
+            success: true,
+            data: normalizeBigInt(data)
+        });
+    } catch (err) {
+        console.error("Error in getMyFavoritesStocks", err);
+        res.status(500).json({ success: false, message: "Error in getMyFavoritesStocks" });
+    }
+}
 
 // ("/api/earnings/")
 exports.getEarningsList = async (req, res) => {
