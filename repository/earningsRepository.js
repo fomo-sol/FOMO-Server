@@ -40,6 +40,7 @@ async function getStockFinancesByStockId(stockId) {
                 fin_eps_value,
                 fin_eps_forest,
                 fin_revenue_value,
+                fin_hour,
                 fin_revenue_forest,
                 fin_info_name
             FROM stock_finances
@@ -139,6 +140,7 @@ const getEarningsById = async (id) => {
                  sf.fin_eps_value,
                  sf.fin_eps_forest,
                  sf.fin_revenue_value,
+                 sf.fin_hour,
                  sf.fin_revenue_forest,
                  sf.fin_info_name,
                  sf.created_at
@@ -172,6 +174,7 @@ const getEarningsById = async (id) => {
             fin_revenue_value: row.fin_revenue_value,
             fin_revenue_forest: row.fin_revenue_forest,
             fin_info_name: row.fin_info_name,
+            fin_hour: row.fin_hour,
             created_at: row.created_at,
         }));
         return {stock, finances};
