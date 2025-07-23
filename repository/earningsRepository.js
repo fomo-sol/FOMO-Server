@@ -40,6 +40,7 @@ async function getStockFinancesByStockId(stockId) {
                 fin_eps_value,
                 fin_eps_forest,
                 fin_revenue_value,
+                fin_hour,
                 fin_revenue_forest,
                 fin_info_name
             FROM stock_finances
@@ -57,6 +58,35 @@ async function getStockFinancesByStockId(stockId) {
         console.error("getStockFinancesByStockId DB Error:", err);
         throw err;
     }
+}
+
+const getMyFavoritesStocks = async (myFavoritesStocks) => {
+    try {
+        // 여러 기업 정보를 순회하며 각각 최신 2개 재무 데이터를 가져옴
+        const results = await Promise.all(
+            myFavoritesStocks.map(async (stock) => {
+                const stockId = stock.stock_id;
+
+                // 예: DB 쿼리 or API 요청
+                const finances = await getStockFinancesByStockId(stockId);
+
+                // 최신 fin_release_date 기준 정렬 후 상위 2개만 추출
+                const sortedFinances = finances
+                    .sort((a, b) => new Date(b.fin_release_date) - new Date(a.fin_release_date))
+                    .slice(0, 2);
+
+                return {
+                    ...stock,
+                    finances: sortedFinances,
+                };
+            })
+        );
+        return results;
+    } catch (error) {
+        console.error("getMyFavoritesStocks Error:", error);
+        throw error;
+    }
+
 }
 
 const getEarningsDetailFinanceById = async (earningFinance) => {
@@ -110,6 +140,7 @@ const getEarningsById = async (id) => {
                  sf.fin_eps_value,
                  sf.fin_eps_forest,
                  sf.fin_revenue_value,
+                 sf.fin_hour,
                  sf.fin_revenue_forest,
                  sf.fin_info_name,
                  sf.created_at
@@ -143,6 +174,7 @@ const getEarningsById = async (id) => {
             fin_revenue_value: row.fin_revenue_value,
             fin_revenue_forest: row.fin_revenue_forest,
             fin_info_name: row.fin_info_name,
+            fin_hour: row.fin_hour,
             created_at: row.created_at,
         }));
         return {stock, finances};
@@ -222,6 +254,7 @@ const langContent = {
     },
 };
 
+exports.getMyFavoritesStocks = getMyFavoritesStocks;
 exports.getStockIdBySymbol = getStockIdBySymbol;
 exports.getEarningsEXCD = getEarningsEXCD;
 exports.getEarningsById = getEarningsById;
