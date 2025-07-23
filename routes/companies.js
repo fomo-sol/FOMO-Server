@@ -7,4 +7,6 @@ router.get("/", companiesController.getCompanies);     // /api/companies
 
 router.get("/search", companiesController.getSearchCompanies);
 
+// router.get("/gogo", companiesController.postEmergency);
+
 module.exports = router;
