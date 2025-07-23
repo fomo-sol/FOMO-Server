@@ -80,7 +80,12 @@ exports.getRealTimeToken = async (req, res) => {
     }
 
     // Redis에 저장 (예: saveTokenToRedis 함수가 approval_key도 저장하도록 수정 필요)
-    await saveRealTimeToken({ approval_key: approvalKey, raw: data });
+    try {
+      await saveRealTimeToken({ approval_key: approvalKey, raw: data });
+    } catch (err) {
+      console.error("❌ Redis 저장 실패 (saveRealTimeToken):", err);
+      throw err;
+    }
 
     res.status(200).json({ success: true, approval_key: approvalKey });
   } catch (err) {
@@ -108,7 +113,13 @@ exports.getHantuToken = async (req, res) => {
       }
     );
     const token = await response.json();
-    await savePeriodToken(token);
+
+    try {
+      await savePeriodToken(token);
+    } catch (err) {
+      console.error("❌ Redis 저장 실패 (savePeriodToken):", err);
+      throw new Error("토큰 저장 중 문제가 발생했습니다.");
+    }
 
     res.status(200).json(token);
   } catch (err) {
@@ -166,16 +177,26 @@ exports.getMinutesChart = async (req, res) => {
       KEYB,
     };
 
-    // 캐시에서 데이터 확인
-    const cachedData = getCachedData("minutes", cacheParams);
-    if (cachedData) {
-      return res.status(200).json(cachedData);
+    // 캐시에서 데이터 확인 (KEYB가 빈 문자열이 아닐 때만 캐싱 적용)
+    if (KEYB !== "") {
+      const cachedData = getCachedData("minutes", cacheParams);
+      if (cachedData) {
+        return res.status(200).json(cachedData);
+      }
     }
 
     const queryParams = new URLSearchParams(cacheParams).toString();
 
     // 토큰 가져오기
-    const myGetToken = await getPeriodToken();
+
+    let myGetToken;
+    try {
+      myGetToken = await getPeriodToken();
+    } catch (err) {
+      console.error("❌ Redis 토큰 조회 실패 (getPeriodToken):", err);
+      throw new Error("Redis에서 토큰을 가져오는 중 오류 발생");
+    }
+
     if (!myGetToken) {
       throw new Error("토큰이 없습니다.");
     }
@@ -199,8 +220,8 @@ exports.getMinutesChart = async (req, res) => {
 
     const data = await response.json();
 
-    // 성공적인 응답인 경우에만 캐시에 저장
-    if (data.rt_cd === "0" || data.rt_cd === 0) {
+    // 성공적인 응답인 경우에만 캐시에 저장 (KEYB가 빈 문자열이 아닐 때만)
+    if ((data.rt_cd === "0" || data.rt_cd === 0) && KEYB !== "") {
       saveCachedData("minutes", cacheParams, data);
     }
 
@@ -248,10 +269,12 @@ exports.getDailyChart = async (req, res) => {
       MODP,
     };
 
-    // 캐시에서 데이터 확인
-    const cachedData = getCachedData("daily", cacheParams);
-    if (cachedData) {
-      return res.status(200).json(cachedData);
+    // 캐시에서 데이터 확인 (BYMD가 빈 문자열이 아닐 때만 캐싱 적용)
+    if (BYMD !== "") {
+      const cachedData = getCachedData("daily", cacheParams);
+      if (cachedData) {
+        return res.status(200).json(cachedData);
+      }
     }
 
     const queryParams = new URLSearchParams(cacheParams).toString();
@@ -277,8 +300,8 @@ exports.getDailyChart = async (req, res) => {
     );
     const data = await response.json();
 
-    // 성공적인 응답인 경우에만 캐시에 저장
-    if (data.rt_cd === "0" || data.rt_cd === 0) {
+    // 성공적인 응답인 경우에만 캐시에 저장 (BYMD가 빈 문자열이 아닐 때만)
+    if ((data.rt_cd === "0" || data.rt_cd === 0) && BYMD !== "") {
       saveCachedData("daily", cacheParams, data);
     }
 

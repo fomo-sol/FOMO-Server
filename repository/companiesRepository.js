@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 // const externalData = require('./stock.json');
+
 // 전체 기업 목록 조회
 exports.getAllCompanies = async () => {
     try {
@@ -24,7 +25,6 @@ exports.getAllCompanies = async () => {
         throw err;
     }
 };
-
 
 // exports.getStockData = async () => {
 //     try {

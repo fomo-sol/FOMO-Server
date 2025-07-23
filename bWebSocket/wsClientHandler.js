@@ -1,55 +1,53 @@
-exports.handleConnection = (ws) => {
-  console.log("WebSocket 클라이언트 연결됨");
+const clientSubscriptions = new Map(); // { ws: Set<symbol> }
+const symbolDataMap = new Map(); // { symbol: latestData }
 
-  // 1초마다 현재 날짜/시간을 전송
-  const intervalId = setInterval(() => {
-    if (ws.readyState === 1) {
-      ws.send(
-        JSON.stringify({
-          type: "time",
-          time: new Date().toISOString(),
-        })
-      );
-    }
-  }, 1000);
+exports.handleConnection = (ws) => {
+  console.log("🔗 새로운 클라이언트 연결됨");
+  clientSubscriptions.set(ws, new Set());
 
   ws.on("message", (message) => {
+    let msg;
     try {
-      let msg;
-      try {
-        msg = JSON.parse(message);
-      } catch {
-        msg = message;
-      }
-      console.log("클라이언트로부터 메시지:", msg);
-      // 심볼 요청 메시지 처리
-      if (
-        msg &&
-        typeof msg === "object" &&
-        msg.type === "symbol" &&
-        msg.symbol
-      ) {
+      msg = JSON.parse(message);
+    } catch {
+      return;
+    }
+    if (msg.type === "symbol" && msg.symbol) {
+      clientSubscriptions.get(ws).add(msg.symbol);
+      console.log(`📋 클라이언트 구독: ${msg.symbol}`);
+      ws.send(JSON.stringify({ ok: true, symbol: msg.symbol }));
+      // 최신 데이터 즉시 push (선택)
+      const latest = symbolDataMap.get(msg.symbol);
+      if (latest) {
+        console.log(`📤 최신 데이터 즉시 전송: ${msg.symbol}`);
         ws.send(
-          JSON.stringify({
-            ok: true,
-            symbol: msg.symbol,
-            time: new Date().toISOString(),
-          })
+          JSON.stringify({ type: "realtime", symbol: msg.symbol, data: latest })
         );
       }
-    } catch (err) {
-      console.error("메시지 처리 중 에러:", err);
-      ws.send(
-        JSON.stringify({
-          error: true,
-          message: "메시지 처리 중 에러",
-          detail: err.message,
-        })
-      );
     }
   });
+
   ws.on("close", () => {
-    clearInterval(intervalId);
-    console.log("WebSocket 클라이언트 연결 종료");
+    console.log("🔌 클라이언트 연결 종료");
+    clientSubscriptions.delete(ws);
   });
+};
+
+// 한투 데이터 수신 시 호출
+exports.broadcastRealtime = (symbol, data) => {
+  symbolDataMap.set(symbol, data);
+  let broadcastCount = 0;
+
+  for (const [ws, symbols] of clientSubscriptions.entries()) {
+    if (symbols.has(symbol) && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: "realtime", symbol, data }));
+      broadcastCount++;
+    }
+  }
+
+  if (broadcastCount > 0) {
+    console.log(
+      `📡 실시간 데이터 브로드캐스트: ${symbol} -> ${broadcastCount}개 클라이언트`
+    );
+  }
 };
