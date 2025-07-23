@@ -12,12 +12,19 @@ require("./jobs/dailyNotificationJob");
 
 const app = express();
 
-// CORS 설정
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://15.165.199.80:3000",
+];
+
 const corsOptions = {
-  origin:
-      process.env.NODE_ENV === "production"
-          ? "https://fomo.example.com"
-          : "http://localhost:3000",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: false,
 };
 
