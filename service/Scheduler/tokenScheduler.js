@@ -23,8 +23,28 @@ async function refreshToken() {
   }
 }
 
+async function refreshRealtimeToken() {
+  try {
+    const response = await fetch(`${HOST}/api/earnings/hantu/realtimeToken`, {
+      method: "GET",
+    });
+
+    const data = await response.json();
+    console.log(
+        "✅ Hantu token refreshed at",
+        new Date().toLocaleString(),
+        data
+    );
+  } catch (err) {
+    console.error("❌ Failed to refresh Hantu token:", err);
+  }
+}
+
 // 하루에 2번 실행: 오전 8시, 오후 8시 (한국시간 기준)
 cron.schedule("0 8,20 * * *", () => {
   console.log("🔄 Running Hantu token refresh...");
   refreshToken();
 });
+
+exports.refreshToken = refreshToken;
+exports.refreshRealtimeToken = refreshRealtimeToken;
