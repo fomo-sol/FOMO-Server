@@ -33,7 +33,7 @@ async function initBot() {
       const userId = text.split(" ")[1];
 
       try {
-        await axios.post("http://localhost:4000/api/telegram/subscribe", {
+        await axios.post("http://15.165.199.80:4000/api/telegram/subscribe", {
           userId,
           telegram_id: String(chatId),
         });
