@@ -22,8 +22,7 @@ router.get("/:symbol", earningsController.getEarningsBySymbol);     // /api/earn
 //  /api/earnings/favorites/:userId
 router.get("/favorites/:id", earningsController.getMyFavoritesStocks);
 
-// 실적발표 언어별 콘텐츠 조회 (예: /api/earnings/:id/ko)
-router.get("/:id/:lang", earningsController.getEarningsLangContent);
-
+// /api/earnings/results/:id   // 실적발표 컨텐츠 조회
+router.get("/results/:id/", earningsController.getEarningsResultContent);
 
 module.exports = router;
