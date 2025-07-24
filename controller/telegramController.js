@@ -2,7 +2,10 @@ const telegramService = require("../service/telegramService");
 const STATUS = require("../common/status");
 
 exports.subscribeTelegram = async (req, res) => {
+<<<<<<< HEAD
     console.log("[API] /api/telegram/subscribe 요청 수신:", req.body);
+=======
+>>>>>>> 2dcd71c (Fix line endings across all files)
     try {
         const { userId, telegram_id } = req.body;
 
@@ -16,12 +19,17 @@ exports.subscribeTelegram = async (req, res) => {
 
         console.log("[CONTROLLER] 텔레그램 ID 등록 성공:", result);
 
+<<<<<<< HEAD
         res.status(200).json({
+=======
+        res.status(STATUS.SUCCESS.code).json({
+>>>>>>> 2dcd71c (Fix line endings across all files)
             message: "텔레그램 ID가 성공적으로 등록되었습니다.",
             data: result,
         });
     } catch (error) {
         console.error("[CONTROLLER ERROR]", error.message);
+<<<<<<< HEAD
 
         // 중복 에러 처리
         if (error.code === 'ER_DUP_ENTRY') {
@@ -33,6 +41,9 @@ exports.subscribeTelegram = async (req, res) => {
         // 에러 코드가 숫자가 아니면 500으로 처리
         const status = typeof error.code === "number" ? error.code : 500;
         res.status(status).json({
+=======
+        res.status(error.code || 500).json({
+>>>>>>> 2dcd71c (Fix line endings across all files)
             message: error.message || "서버 오류",
         });
     }
