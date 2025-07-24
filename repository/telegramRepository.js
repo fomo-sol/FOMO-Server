@@ -6,6 +6,7 @@ exports.updateTelegramId = async (userId, telegramId) => {
             `UPDATE users SET telegram_id = ? WHERE id = ?`,
             [telegramId, userId]
         );
+        console.log("[REPO] UPDATE 결과:", result);
 
         if (result.affectedRows === 0) {
             const err = new Error("해당 사용자를 찾을 수 없습니다.");

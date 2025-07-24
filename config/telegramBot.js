@@ -6,44 +6,30 @@ const axios = require("axios");
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+const bot = new TelegramBot(token, { polling: true });
 
-let bot;
+bot.on("message", (msg) => {
+    console.log("[BOT] 메시지 수신:", msg);
 
-
-if (!token) {
-  console.error("❌ TELEGRAM_BOT_TOKEN is missing! 봇을 실행할 수 없습니다.");
-  process.exit(1);
-}
-
-
-async function initBot() {
-  bot = new TelegramBot(token, { polling: false });
-
-  // webhook 제거 후 polling 시작
-  await bot.deleteWebhook();
-  await bot.startPolling();
-
-  console.log("[BOT] Telegram polling 시작됨");
-
-  bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
     if (text.startsWith("/start ")) {
-      const userId = text.split(" ")[1];
+        const userId = text.split(" ")[1];
+        console.log(`[BOT] userId: ${userId}, chatId: ${chatId}`);
 
-      try {
-        await axios.post("http://15.165.199.80:4000/api/telegram/subscribe", {
-          userId,
-          telegram_id: String(chatId),
-        });
-        bot.sendMessage(chatId, "📬 알림 구독이 완료되었습니다.");
-      } catch (err) {
-        console.error("[BOT ERROR] 구독 실패:", err.message);
-        bot.sendMessage(chatId, "❌ 구독 실패! 관리자에게 문의하세요.");
-      }
+        axios.post("http://15.165.199.80:4000/api/telegram/subscribe", {
+            userId,
+            telegram_id: String(chatId),
+        })
+            .then(() => {
+                bot.sendMessage(chatId, "📬 알림 구독이 완료되었습니다.");
+            })
+            .catch((err) => {
+                console.error("[BOT ERROR] 구독 실패:", err.message);
+                bot.sendMessage(chatId, "❌ 구독 실패! 관리자에게 문의하세요.");
+            });
     }
-  });
-}
+});
 
-module.exports = { initBot };
+module.exports = bot;

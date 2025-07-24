@@ -1,3 +1,5 @@
+const pool = require("../config/db");
+
 exports.getAllNotifications = async () => {
     return [
         {
@@ -24,4 +26,14 @@ exports.getCustomNotifications = async () => {
             created_at: "2025-07-11T09:00:00Z",
         },
     ];
+};
+
+exports.insertGlobalAlert = async (alert_content) => {
+    const query = `INSERT INTO global_alerts (alert_content) VALUES (?)`;
+    await pool.query(query, [alert_content]);
+};
+
+exports.insertUserAlert = async (user_id, alert_content, status = 'fomc_analysis') => {
+    const query = `INSERT INTO user_alerts (user_id, alert_content, status) VALUES (?, ?, ?)`;
+    await pool.query(query, [user_id, alert_content, status]);
 };
