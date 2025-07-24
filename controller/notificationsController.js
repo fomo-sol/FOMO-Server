@@ -1,20 +1,50 @@
 const service = require("../service/notificationsService");
 const fcmService = require("../service/fcmService");
 const userRepository = require("../repository/userRepository");
-const pool = require('../config/db');
+const pool = require("../config/db");
 const axios = require("axios");
 const moment = require("moment-timezone");
 const telegramService = require("../service/telegramService");
 
 exports.getNotifications = async (req, res) => {
   const filter = req.query.filter || "all";
-  const data = await service.fetchNotifications(filter);
-  res.json({ success: true, data });
+  const userId = req.query.userId;
+
+  if (!userId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "userId is required" });
+  }
+
+  try {
+    const allNotifications = await service.fetchNotifications(filter, userId);
+    return res.status(200).json({
+      success: true,
+      data: allNotifications,
+    });
+  } catch (err) {
+    console.error("getNotifications error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
 
 exports.getLatestNotification = async (req, res) => {
-  const data = await service.fetchLatestNotification();
-  res.json({ success: true, data });
+  try {
+    const latest = await service.fetchLatestNotification();
+    return res.status(200).json({
+      success: true,
+      data: latest,
+    });
+  } catch (err) {
+    console.error("getLatestNotification error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
 
 exports.sendTestNotification = async (req, res, next) => {
@@ -24,7 +54,9 @@ exports.sendTestNotification = async (req, res, next) => {
 
     const user = await userRepository.findById(userId);
     if (!user || !user.fcm_token) {
-      return res.status(400).json({ success: false, message: "FCM 토큰이 없습니다." });
+      return res
+        .status(400)
+        .json({ success: false, message: "FCM 토큰이 없습니다." });
     }
 
     await fcmService.sendNotificationToToken(
@@ -43,7 +75,9 @@ exports.sendTestNotification = async (req, res, next) => {
 exports.notifyByStatementDate = async (req, res, next) => {
   const { date, type } = req.body;
   if (!date || !type) {
-    return res.status(400).json({ success: false, message: "date와 type 값이 필요합니다." });
+    return res
+      .status(400)
+      .json({ success: false, message: "date와 type 값이 필요합니다." });
   }
 
   // KST(Asia/Seoul) 기준으로 날짜 변환
@@ -54,15 +88,24 @@ exports.notifyByStatementDate = async (req, res, next) => {
 
   try {
     const { data: rawData } = await axios.get(s3Url);
-    console.log("📦 원본 응답 (문자열):", typeof rawData, rawData.slice(0, 100));
+    console.log(
+      "📦 원본 응답 (문자열):",
+      typeof rawData,
+      rawData.slice(0, 100)
+    );
 
     const sectorList = JSON.parse(rawData);
     if (!Array.isArray(sectorList)) {
       console.error("❌ sectorList 파싱 후 배열 아님:", sectorList);
-      return res.status(500).json({ success: false, message: "산업 데이터 형식 오류" });
+      return res
+        .status(500)
+        .json({ success: false, message: "산업 데이터 형식 오류" });
     }
 
-    console.log("📦 파싱된 sector 리스트:", sectorList.map(s => s.sector));
+    console.log(
+      "📦 파싱된 sector 리스트:",
+      sectorList.map((s) => s.sector)
+    );
 
     for (const sectorObj of sectorList) {
       const { sector, prediction } = sectorObj;
@@ -85,7 +128,10 @@ exports.notifyByStatementDate = async (req, res, next) => {
           );
           console.log(`✅ ${user.username || user.id} 전송 완료`, result);
         } catch (err) {
-          console.error(`❌ ${user.username || user.id} 전송 실패:`, err.message);
+          console.error(
+            `❌ ${user.username || user.id} 전송 실패:`,
+            err.message
+          );
 
           // 유효하지 않은 토큰일 경우 삭제
           if (
@@ -98,7 +144,9 @@ exports.notifyByStatementDate = async (req, res, next) => {
         }
       }
       // 텔레그램 브로드캐스트: sector별 prediction을 그대로 전송
-      await telegramService.broadcastTelegramAlert(`[${sector}] 산업 전망\n${prediction}`);
+      await telegramService.broadcastTelegramAlert(
+        `[${sector}] 산업 전망\n${prediction}`
+      );
     }
 
     res.json({ success: true, message: "알림 전송 완료" });
@@ -112,7 +160,9 @@ exports.notifyByStatementDate = async (req, res, next) => {
 exports.notifyFomcPreAlarm = async (req, res, next) => {
   const { date, type, state, time } = req.body;
   if (!date || !type || !state) {
-    return res.status(400).json({ success: false, message: "date, type, state 값이 필요합니다." });
+    return res
+      .status(400)
+      .json({ success: false, message: "date, type, state 값이 필요합니다." });
   }
 
   try {
@@ -157,7 +207,11 @@ exports.notifyFomcPreAlarm = async (req, res, next) => {
         );
         sent.push({ user_id: user.id, username: user.username, result });
       } catch (err) {
-        failed.push({ user_id: user.id, username: user.username, error: err.message });
+        failed.push({
+          user_id: user.id,
+          username: user.username,
+          error: err.message,
+        });
       }
     }
 
@@ -169,11 +223,15 @@ exports.notifyFomcPreAlarm = async (req, res, next) => {
       message: "FOMC 예정 알림 전송 완료",
       alarm_message: message,
       sent,
-      failed
+      failed,
     });
   } catch (err) {
     console.error("[ERROR] notifyFomcPreAlarm:", err);
-    res.status(500).json({ success: false, message: "FOMC 예정 알림 전송 중 서버 오류", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "FOMC 예정 알림 전송 중 서버 오류",
+      error: err.message,
+    });
   }
 };
 
@@ -181,7 +239,9 @@ exports.notifyFomcPreAlarm = async (req, res, next) => {
 exports.notifyFomcUploadAlarm = async (req, res, next) => {
   const { date, type } = req.body;
   if (!date || !type) {
-    return res.status(400).json({ success: false, message: "date, type 값이 필요합니다." });
+    return res
+      .status(400)
+      .json({ success: false, message: "date, type 값이 필요합니다." });
   }
 
   try {
@@ -213,7 +273,11 @@ exports.notifyFomcUploadAlarm = async (req, res, next) => {
         );
         sent.push({ user_id: user.id, username: user.username, result });
       } catch (err) {
-        failed.push({ user_id: user.id, username: user.username, error: err.message });
+        failed.push({
+          user_id: user.id,
+          username: user.username,
+          error: err.message,
+        });
       }
     }
 
@@ -225,10 +289,14 @@ exports.notifyFomcUploadAlarm = async (req, res, next) => {
       message: "FOMC 업로드 알림 전송 완료",
       alarm_message: message,
       sent,
-      failed
+      failed,
     });
   } catch (err) {
     console.error("[ERROR] notifyFomcUploadAlarm:", err);
-    res.status(500).json({ success: false, message: "FOMC 업로드 알림 전송 중 서버 오류", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "FOMC 업로드 알림 전송 중 서버 오류",
+      error: err.message,
+    });
   }
 };
