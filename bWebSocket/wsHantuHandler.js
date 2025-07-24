@@ -1,9 +1,39 @@
 const WebSocket = require("ws");
 const { refreshRealtimeToken } = require("../service/Scheduler/tokenScheduler");
 const { broadcastRealtime } = require("./wsClientHandler");
+const { redis } = require("../config/redis");
 
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+// Redis 오류 모니터링 및 WebSocket 재연결 관리
+let currentWebSocket = null;
+let redisErrorCount = 0;
+const MAX_REDIS_ERRORS = 3; // Redis 오류 3회 발생 시 WebSocket 재연결
+
+// Redis 오류 리스너 설정
+redis.on("error", (err) => {
+  console.error("❌ Redis 오류 발생:", err.message);
+  redisErrorCount++;
+
+  if (redisErrorCount >= MAX_REDIS_ERRORS) {
+    console.warn(
+      `⚠️ Redis 오류 ${MAX_REDIS_ERRORS}회 발생, WebSocket 재연결 시도`
+    );
+    redisErrorCount = 0; // 카운터 리셋
+
+    if (currentWebSocket && currentWebSocket.readyState === WebSocket.OPEN) {
+      console.log("🔄 Redis 오류로 인한 WebSocket 재연결 시작");
+      currentWebSocket.close();
+    }
+  }
+});
+
+// Redis 연결 복구 시 카운터 리셋
+redis.on("connect", () => {
+  console.log("✅ Redis 연결 복구됨");
+  redisErrorCount = 0;
+});
 
 // 해외주식(미국/AMS) 호가 데이터 파싱 및 출력 (정렬된 형태)
 function printStockHokaOverseas(data) {
@@ -33,55 +63,9 @@ function printStockHokaOverseas(data) {
     timestamp: new Date().toISOString(),
   };
 
-  console.log(
-    `📡 호가 데이터 수신: ${symbol} - ${hokaData.bidPrice}/${hokaData.askPrice}`
-  );
+  // 성능을 위해 콘솔 출력 최소화 (필요시 주석 해제)
+  // console.log(`📡 호가: ${symbol} - ${hokaData.bidPrice}/${hokaData.askPrice}`);
   broadcastRealtime(symbol, hokaData);
-
-  const labels = [
-    "실시간종목코드",
-    "종목코드",
-    "소숫점자리수",
-    "현지일자",
-    "현지시간",
-    "한국일자",
-    "한국시간",
-    "매수총 잔량",
-    "매도총 잔량",
-    "매수총잔량대비",
-    "매도총잔량대비",
-    "매수호가",
-    "매도호가",
-    "매수잔량",
-    "매도잔량",
-    "매수잔량대비",
-    "매도잔량대비",
-  ];
-  const values = [
-    recv[0],
-    recv[1],
-    recv[2],
-    recv[3],
-    recv[4],
-    recv[5],
-    recv[6],
-    recv[7],
-    recv[8],
-    recv[9],
-    recv[10],
-    recv[11],
-    recv[12],
-    recv[13],
-    recv[14],
-    recv[15],
-    recv[16],
-  ];
-  console.log("\n📊 [해외주식 호가 데이터]");
-  console.log("=".repeat(40));
-  labels.forEach((label, idx) => {
-    console.log(`${label.padEnd(16, " ")}: ${values[idx] ?? "-"}`);
-  });
-  console.log("=".repeat(40) + "\n");
 }
 
 // 해외주식(미국/AMS) 체결 데이터 파싱 및 출력 (정렬된 형태)
@@ -125,17 +109,9 @@ function printStockPurchaseOverseas(data) {
     timestamp: new Date().toISOString(),
   };
 
-  console.log(
-    `📈 체결 데이터 수신: ${symbol} - ${purchaseData.currentPrice} (${purchaseData.changeRate}%)`
-  );
+  // 성능을 위해 콘솔 출력 최소화 (필요시 주석 해제)
+  // console.log(`📈 체결: ${symbol} - ${purchaseData.currentPrice} (${purchaseData.changeRate}%)`);
   broadcastRealtime(symbol, purchaseData);
-
-  console.log("\n📈 [해외주식 체결 데이터]");
-  console.log("=".repeat(40));
-  for (let i = 0; i < keys.length && i < values.length; i++) {
-    console.log(`${keys[i].padEnd(16, " ")}: ${values[i] ?? "-"}`);
-  }
-  console.log("=".repeat(40) + "\n");
 }
 
 // approval_key 발급 함수
@@ -157,6 +133,7 @@ async function getApprovalKey(appKey, appSecret) {
 
 // 미리 구독할 S&P500 주요 종목 10개
 const PRE_SUBSCRIBE_LIST = [
+  { tr_id: "HDFSASP0", tr_key: "DAMSSPY" }, // SPY (AMS)
   { tr_id: "HDFSASP0", tr_key: "DAMSNVDA" },
   { tr_id: "HDFSASP0", tr_key: "DNASMSFT" },
   { tr_id: "HDFSASP0", tr_key: "DNASAAPL" },
@@ -176,7 +153,8 @@ async function connectOverseasWS(
   trKey = "DAMSSPY",
   retryCount = 0
 ) {
-  const MAX_RETRY_COUNT = 10; // 최대 재시도 횟수
+  const MAX_RETRY_COUNT = 20; // 최대 재시도 횟수 증가
+  const MAX_RECONNECT_DELAY = 60000; // 최대 재연결 지연 60초
 
   if (retryCount >= MAX_RETRY_COUNT) {
     console.error(`❌ 최대 재시도 횟수(${MAX_RETRY_COUNT}) 초과. 재연결 중단.`);
@@ -189,20 +167,56 @@ async function connectOverseasWS(
     const approvalKey = await getApprovalKey(appKey, appSecret);
     const ws = new WebSocket("ws://ops.koreainvestment.com:31000");
 
+    // 전역 WebSocket 인스턴스 저장 (Redis 오류 시 재연결용)
+    currentWebSocket = ws;
+
     // 연결 타임아웃 설정
     const connectionTimeout = setTimeout(() => {
       console.error("⏰ WebSocket 연결 타임아웃");
       ws.close();
-    }, 10000); // 10초 타임아웃
+    }, 15000); // 15초 타임아웃 증가
+
+    // 연결 상태 모니터링
+    let isConnected = false;
+    let lastPingTime = Date.now();
+    const PING_INTERVAL = 30000; // 30초마다 ping 체크
+
+    const pingInterval = setInterval(() => {
+      if (isConnected && Date.now() - lastPingTime > PING_INTERVAL * 2) {
+        console.warn("⚠️ WebSocket ping timeout, 재연결 시도");
+        ws.close();
+      }
+    }, PING_INTERVAL);
+
+    // Redis 상태 체크 (30초마다)
+    const redisHealthCheck = setInterval(async () => {
+      try {
+        if (isConnected) {
+          await redis.ping();
+          redisErrorCount = 0; // 성공 시 오류 카운터 리셋
+        }
+      } catch (err) {
+        console.warn("⚠️ Redis ping 실패:", err.message);
+        redisErrorCount++;
+
+        if (redisErrorCount >= MAX_REDIS_ERRORS) {
+          console.warn("⚠️ Redis 상태 불량, WebSocket 재연결 시도");
+          ws.close();
+        }
+      }
+    }, 30000);
 
     ws.on("error", (err) => {
-      console.error("🚨 WebSocket 에러:", err);
+      console.error("🚨 WebSocket 에러:", err.message);
     });
 
     ws.on("open", () => {
       clearTimeout(connectionTimeout);
+      isConnected = true;
       console.log("✅ WebSocket 연결됨");
       retryCount = 0; // 연결 성공 시 재시도 횟수 초기화
+
+      // 구독 메시지 전송
       PRE_SUBSCRIBE_LIST.forEach(({ tr_id, tr_key }) => {
         const msg = {
           header: {
@@ -216,12 +230,14 @@ async function connectOverseasWS(
           },
         };
         ws.send(JSON.stringify(msg));
-        console.log("📤 구독 메시지 전송:", msg.body.input.tr_key);
+        // console.log("📤 구독 메시지 전송:", msg.body.input.tr_key);
       });
     });
 
     ws.on("message", (data) => {
       try {
+        lastPingTime = Date.now(); // 메시지 수신 시 ping 시간 갱신
+
         const message = data.toString();
         if (message === "PINGPONG") {
           ws.pong();
@@ -235,17 +251,14 @@ async function connectOverseasWS(
           const output = parsed?.body?.output;
 
           if (encrypt === "Y" && typeof output === "string") {
-            console.warn("🔒 암호화된 데이터 수신:", output);
+            console.warn("🔒 암호화된 데이터 수신");
           } else if (typeof output === "string") {
             if (tr_id === "HDFSASP0") {
               printStockHokaOverseas(output);
             } else if (tr_id === "HDFSCNT0") {
               printStockPurchaseOverseas(output);
-            } else {
-              console.log("📡 기타 실시간 데이터:", output);
             }
-          } else {
-            console.log("📡 기타 데이터 수신:", parsed);
+            // 기타 데이터는 로그 제거로 성능 향상
           }
         } else if (message.includes("|") && message.includes("^")) {
           const parts = message.split("|");
@@ -256,20 +269,21 @@ async function connectOverseasWS(
             printStockHokaOverseas(rawData);
           } else if (tr_id === "HDFSCNT0") {
             printStockPurchaseOverseas(rawData);
-          } else {
-            console.log(`📎 비JSON 데이터 수신 (TR: ${tr_id}):`, rawData);
           }
-        } else {
-          console.warn("⚠️ 알 수 없는 메시지 형식:", message);
+          // 기타 데이터는 로그 제거
         }
       } catch (e) {
         console.error("❌ JSON 파싱 실패:", e.message);
-        console.warn("수신한 원시 메시지:", data.toString());
       }
     });
 
     ws.on("close", (code, reason) => {
       clearTimeout(connectionTimeout);
+      clearInterval(pingInterval);
+      clearInterval(redisHealthCheck);
+      isConnected = false;
+      currentWebSocket = null; // 전역 인스턴스 정리
+
       console.warn(
         `🔌 WebSocket 연결 종료: 코드=${code}, 이유=${reason.toString()}`
       );
@@ -279,7 +293,11 @@ async function connectOverseasWS(
         return;
       }
 
-      const delay = Math.min(5000 * (retryCount + 1), 30000); // 지수 백오프, 최대 30초
+      // 지수 백오프로 재연결 지연 계산
+      const delay = Math.min(
+        2000 * Math.pow(2, retryCount),
+        MAX_RECONNECT_DELAY
+      );
       console.log(
         `⏳ ${delay / 1000}초 후 재연결 시도... (${
           retryCount + 1
@@ -289,18 +307,20 @@ async function connectOverseasWS(
       setTimeout(() => {
         connectOverseasWS(appKey, appSecret, trKey, retryCount + 1);
       }, delay);
-
-      // refreshRealtimeToken();
     });
 
     ws.on("error", (err) => {
       clearTimeout(connectionTimeout);
+      clearInterval(pingInterval);
+      clearInterval(redisHealthCheck);
+      isConnected = false;
+      currentWebSocket = null;
       console.error("🚨 WebSocket 에러:", err.message);
-      ws.close(); // 에러 발생 시 명시적으로 종료 후 재연결 유도
+      ws.close();
     });
   } catch (error) {
     console.error("❌ WebSocket 연결 중 에러:", error.message);
-    const delay = Math.min(5000 * (retryCount + 1), 30000);
+    const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RECONNECT_DELAY);
     console.log(
       `⏳ ${delay / 1000}초 후 재연결 시도... (${
         retryCount + 1
