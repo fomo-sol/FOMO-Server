@@ -11,6 +11,7 @@ const {
 } = require("../repository/redisRepository");
 
 const { refreshHantuToken } = require("../service/earningsService");
+const fomcService = require("../service/fomcService");
 
 // 메모리 기반 캐시 객체
 const chartCache = new Map();
@@ -517,18 +518,21 @@ exports.getEarningsBySymbol = async (req, res) => {
   }
 };
 
-exports.getEarningsLangContent = async (req, res) => {
+exports.getEarningsResultContent = async (req, res) => {
   try {
-    const { id, lang } = req.params;
-    const type = req.params.type || "earnings"; // 현재는 earnings 고정
 
-    const content = await earningsService.fetchEarningsLangContent(id, lang);
-    if (!content) {
-      return res
-        .status(404)
-        .json({ success: false, message: "콘텐츠를 찾을 수 없습니다." });
+    const { id } = req.params;
+    const { date } = req.query;
+
+    if (!id && !date) {
+      return res.status(400).json({
+        success: false,
+        message: "ID 또는 date 파라미터가 필요합니다.",
+      });
     }
-    res.json({ success: true, content });
+    // 짜야함
+
+    res.status(200).json({ success: true, data });
   } catch (err) {
     console.error("Earnings lang content error:", err);
     res.status(500).json({ success: false, message: "서버 오류" });
