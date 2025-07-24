@@ -520,17 +520,15 @@ exports.getEarningsBySymbol = async (req, res) => {
 
 exports.getEarningsResultContent = async (req, res) => {
   try {
-
     const { id } = req.params;
-    const { date } = req.query;
 
-    if (!id && !date) {
+    if (!id) {
       return res.status(400).json({
         success: false,
         message: "ID 또는 date 파라미터가 필요합니다.",
       });
     }
-    // 짜야함
+    const data = await earningsRepository.getEarningsResultsById(id);
 
     res.status(200).json({ success: true, data });
   } catch (err) {
