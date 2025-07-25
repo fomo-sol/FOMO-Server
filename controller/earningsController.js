@@ -100,7 +100,7 @@ function saveCachedData(type, params, data) {
   console.log(`Cached ${type} chart data`);
 }
 
-// 실시간 데이터 캐시 조회
+// 실시간 1분봉 데이터 캐시 조회
 function getRealtimeCache(symbol, params) {
   const cacheKey = `realtime_${symbol}_${JSON.stringify(params)}`;
   const cached = realtimeCache.get(cacheKey);
@@ -114,7 +114,7 @@ function getRealtimeCache(symbol, params) {
   return null;
 }
 
-// 실시간 데이터 캐시 저장
+// 실시간 1분봉 데이터 캐시 저장
 function saveRealtimeCache(symbol, params, data) {
   const cacheKey = `realtime_${symbol}_${JSON.stringify(params)}`;
   realtimeCache.set(cacheKey, {
@@ -248,6 +248,13 @@ exports.getMinutesChart = async (req, res) => {
         EXCD = "AMS";
       } else {
         EXCD = await earningsRepository.getEarningsEXCD(SYMB);
+        // 데이터베이스 연결 실패 시 기본값 설정
+        if (EXCD === null) {
+          console.warn(
+            `⚠️ Database connection failed for ${SYMB}, using default EXCD`
+          );
+          EXCD = "AMS"; // 기본값으로 AMS 사용
+        }
       }
     }
 
@@ -369,6 +376,13 @@ exports.getDailyChart = async (req, res) => {
       EXCD = "AMS";
     } else {
       EXCD = await earningsRepository.getEarningsEXCD(SYMB);
+      // 데이터베이스 연결 실패 시 기본값 설정
+      if (EXCD === null) {
+        console.warn(
+          `⚠️ Database connection failed for ${SYMB}, using default EXCD`
+        );
+        EXCD = "AMS"; // 기본값으로 AMS 사용
+      }
     }
 
     if (SYMB === "BRK-B") {
