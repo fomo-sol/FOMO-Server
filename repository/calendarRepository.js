@@ -73,7 +73,7 @@ exports.getEarningsInRange = async (startDate, endDate) => {
     [startDate, endDate]
   );
 
-  const rows = Array.isArray(rawRows) ? rawRows : [rawRows]; // ✅ 추가
+  const rows = Array.isArray(rawRows) ? rawRows : [rawRows];
 
   const result = {};
 
@@ -91,6 +91,7 @@ exports.getEarningsInRange = async (startDate, endDate) => {
     result[dateKey]["before"].push({
       event: `${row.stock_name_kr} (${row.stock_symbol})`,
       time,
+      symbol: row.stock_symbol,
       logo: row.stock_logo_img,
       fin_hour: row.fin_hour,
     });
