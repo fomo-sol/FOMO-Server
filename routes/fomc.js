@@ -2,13 +2,12 @@ const express = require("express");
 const router = express.Router();
 const fomcController = require("../controller/fomcController");
 
-router.get("/decisions", fomcController.getFomcDecisionsList);              // /api/fomc/decisions
+router.get("/decisions", fomcController.getFomcDecisionsList); // /api/fomc/decisions
 
-router.get("/minutes", fomcController.getFomcMinutesList);                  // /api/fomc/minutes
+router.get("/minutes", fomcController.getFomcMinutesList); // /api/fomc/minutes
 
+router.get("/decisions/:id", fomcController.getFomcDecisions); // /api/fomc/decisions/:id
 
-router.get("/:id/:type", fomcController.getFomcType);     // /api/fomc/:id/:type
-
-router.get("/:id/:type/:lang", fomcController.getFomcContentByLang);     // /api/fomc/:id/:type/:lang
+router.get("/minutes/:id", fomcController.getFomcminutes); // /api/fomc/minutes/:id
 
 module.exports = router;

@@ -90,15 +90,64 @@ exports.saveFcmToken = async (userId, token) => {
 
 // 관심 sector별 유저 조회 (sector_name으로)
 exports.findUsersBySector = async (sectorName) => {
-  const query = `
-        SELECT u.*
-        FROM users u
-        JOIN user_wishlist uw ON u.id = uw.user_id
-        JOIN stocks s ON uw.stock_id = s.id
-        JOIN sectors sec ON s.sector_id = sec.id
-        WHERE sec.sector_name = ? AND u.fcm_token IS NOT NULL
-        GROUP BY u.id
+    const query = `
+      SELECT DISTINCT u.*
+      FROM users u
+      JOIN user_wishlist uw ON u.id = uw.user_id
+      JOIN stocks s ON uw.stock_id = s.id
+      JOIN sectors sec ON s.sector_id = sec.id
+      WHERE sec.sector_name = ? AND u.fcm_token IS NOT NULL
     `;
   const rows = await pool.query(query, [sectorName]);
   return rows; // rows 그대로 반환 (findAllWithFcmToken 참고)
+};
+
+// user_id로 관심종목(심볼, 섹터명) 리스트 조회
+exports.findFavoritesByUserId = async (userId) => {
+  const query = `
+    SELECT s.stock_symbol AS symbol, sec.sector_name
+    FROM user_wishlist uw
+    JOIN stocks s ON uw.stock_id = s.id
+    JOIN sectors sec ON s.sector_id = sec.id
+    WHERE uw.user_id = ?
+  `;
+  const rows = await pool.query(query, [userId]);
+  return rows; // [{ symbol: "AAPL", sector_name: "IT" }, ...]
+};
+
+// 특정 종목을 관심종목으로 등록한 유저 조회
+exports.findUsersByStockId = async (stock_id) => {
+  const query = `
+    SELECT DISTINCT u.*
+    FROM users u
+    JOIN user_wishlist uw ON u.id = uw.user_id
+    WHERE uw.stock_id = ? AND u.fcm_token IS NOT NULL
+  `;
+  const rows = await pool.query(query, [stock_id]);
+  return rows;
+};
+
+// 종목 symbol로 관심유저 조회 (symbol이 유니크한 경우)
+exports.findUsersBySymbol = async (symbol) => {
+  const query = `
+    SELECT DISTINCT u.*
+    FROM users u
+    JOIN user_wishlist uw ON u.id = uw.user_id
+    JOIN stocks s ON uw.stock_id = s.id
+    WHERE s.stock_symbol = ? AND u.fcm_token IS NOT NULL
+  `;
+  const rows = await pool.query(query, [symbol]);
+  return rows;
+};
+
+// 종목 symbol로 stock_id 조회
+exports.findStockIdBySymbol = async (symbol) => {
+  const query = `
+    SELECT id
+    FROM stocks
+    WHERE stock_symbol = ?
+    LIMIT 1
+  `;
+  const rows = await pool.query(query, [symbol]);
+  return rows[0] || null;
 };

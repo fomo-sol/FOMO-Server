@@ -3,8 +3,8 @@ const pool = require("../config/db");
 
 // 전체 기업 목록 조회
 exports.getAllCompanies = async () => {
-    try {
-        const rows = await pool.execute(`
+  try {
+    const rows = await pool.execute(`
             SELECT 
                 s.id,
                 s.stock_name AS name,
@@ -19,11 +19,11 @@ exports.getAllCompanies = async () => {
             ORDER BY s.stock_rank ASC
         `);
 
-        return rows;
-    } catch (err) {
-        console.error("getAllCompaney error:", err);
-        throw err;
-    }
+    return rows;
+  } catch (err) {
+    console.error("getAllCompaney error:", err);
+    throw err;
+  }
 };
 
 // exports.getStockData = async () => {
@@ -94,8 +94,9 @@ exports.getAllCompanies = async () => {
 
 // 기업 검색
 exports.searchCompanies = async (keyword) => {
-    try {
-    const rows = await pool.execute(`
+  try {
+    const rows = await pool.execute(
+      `
         SELECT 
             s.id,
             s.stock_name AS name,
@@ -112,10 +113,12 @@ exports.searchCompanies = async (keyword) => {
             s.stock_name_kr LIKE ? OR 
             s.stock_symbol LIKE ?
         ORDER BY s.stock_rank ASC
-    `, [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`]);
+    `,
+      [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`]
+    );
     return rows;
-    } catch (err) {
-        console.error("getSearchCompany error:", err);
-        throw err;
-    }
+  } catch (err) {
+    console.error("getSearchCompany error:", err);
+    throw err;
+  }
 };

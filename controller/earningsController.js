@@ -10,8 +10,65 @@ const {
   getPeriodToken,
 } = require("../repository/redisRepository");
 
+const { refreshHantuToken } = require("../service/earningsService");
+const fomcService = require("../service/fomcService");
+
 // 메모리 기반 캐시 객체
 const chartCache = new Map();
+
+// 실시간 데이터 임시 캐시 (5초)
+const realtimeCache = new Map();
+
+// 한투 API 요청 큐 시스템 (초당 거래건수 제한 해결)
+class HantuRequestQueue {
+  constructor() {
+    this.queue = [];
+    this.processing = false;
+    this.lastRequestTime = 0;
+    this.minInterval = 100; // 최소 100ms 간격 (초당 10회 제한)
+  }
+
+  async addRequest(requestFn) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ requestFn, resolve, reject });
+      this.processQueue();
+    });
+  }
+
+  async processQueue() {
+    if (this.processing || this.queue.length === 0) {
+      return;
+    }
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const { requestFn, resolve, reject } = this.queue.shift();
+
+      try {
+        // 요청 간격 조절
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequestTime;
+
+        if (timeSinceLastRequest < this.minInterval) {
+          const delay = this.minInterval - timeSinceLastRequest;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        this.lastRequestTime = Date.now();
+
+        const result = await requestFn();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    }
+
+    this.processing = false;
+  }
+}
+
+const hantuQueue = new HantuRequestQueue();
 
 // 캐시 키 생성 함수
 function generateCacheKey(type, params) {
@@ -42,6 +99,40 @@ function saveCachedData(type, params, data) {
   chartCache.set(cacheKey, data);
   console.log(`Cached ${type} chart data`);
 }
+
+// 실시간 1분봉 데이터 캐시 조회
+function getRealtimeCache(symbol, params) {
+  const cacheKey = `realtime_${symbol}_${JSON.stringify(params)}`;
+  const cached = realtimeCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < 5000) {
+    // 5초 유효
+    console.log(`Returning realtime cache for ${symbol}`);
+    return cached.data;
+  }
+
+  return null;
+}
+
+// 실시간 1분봉 데이터 캐시 저장
+function saveRealtimeCache(symbol, params, data) {
+  const cacheKey = `realtime_${symbol}_${JSON.stringify(params)}`;
+  realtimeCache.set(cacheKey, {
+    data,
+    timestamp: Date.now(),
+  });
+  console.log(`Cached realtime data for ${symbol}`);
+}
+
+// 주기적으로 오래된 실시간 캐시 정리
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of realtimeCache.entries()) {
+    if (now - value.timestamp > 5000) {
+      realtimeCache.delete(key);
+    }
+  }
+}, 10000); // 10초마다 정리
 
 // ("/api/earnings/hantu/realTimeToken")
 exports.getRealTimeToken = async (req, res) => {
@@ -157,6 +248,13 @@ exports.getMinutesChart = async (req, res) => {
         EXCD = "AMS";
       } else {
         EXCD = await earningsRepository.getEarningsEXCD(SYMB);
+        // 데이터베이스 연결 실패 시 기본값 설정
+        if (EXCD === null) {
+          console.warn(
+            `⚠️ Database connection failed for ${SYMB}, using default EXCD`
+          );
+          EXCD = "AMS"; // 기본값으로 AMS 사용
+        }
       }
     }
 
@@ -177,53 +275,80 @@ exports.getMinutesChart = async (req, res) => {
       KEYB,
     };
 
-    // 캐시에서 데이터 확인 (KEYB가 빈 문자열이 아닐 때만 캐싱 적용)
-    if (KEYB !== "") {
+    // 캐싱 전략: KEYB가 있으면 캐싱, 없으면 실시간 캐싱
+    const shouldCache = KEYB !== "";
+
+    if (shouldCache) {
+      // 특정 시간 데이터는 영구 캐싱
       const cachedData = getCachedData("minutes", cacheParams);
       if (cachedData) {
         return res.status(200).json(cachedData);
       }
-    }
-
-    const queryParams = new URLSearchParams(cacheParams).toString();
-
-    // 토큰 가져오기
-
-    let myGetToken;
-    try {
-      myGetToken = await getPeriodToken();
-    } catch (err) {
-      console.error("❌ Redis 토큰 조회 실패 (getPeriodToken):", err);
-      throw new Error("Redis에서 토큰을 가져오는 중 오류 발생");
-    }
-
-    if (!myGetToken) {
-      throw new Error("토큰이 없습니다.");
-    }
-    const getToken = myGetToken.access_token;
-
-    // 분봉 API 호출
-    const response = await fetch(
-      `https://openapivts.koreainvestment.com:29443/uapi/overseas-price/v1/quotations/inquire-time-itemchartprice?${queryParams}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${getToken}`,
-          "content-type": "application/json; charset=utf-8",
-          appKey: appKey,
-          appSecret: appSecret,
-          tr_id: "HHDFS76950200",
-          custtype: "P", // 개인 (B는 법인)
-        },
+    } else {
+      // 실시간 데이터는 5초 임시 캐싱
+      const realtimeParams = { ...cacheParams, KEYB: "" };
+      const realtimeCachedData = getRealtimeCache(SYMB, realtimeParams);
+      if (realtimeCachedData) {
+        return res.status(200).json(realtimeCachedData);
       }
-    );
-
-    const data = await response.json();
-
-    // 성공적인 응답인 경우에만 캐시에 저장 (KEYB가 빈 문자열이 아닐 때만)
-    if ((data.rt_cd === "0" || data.rt_cd === 0) && KEYB !== "") {
-      saveCachedData("minutes", cacheParams, data);
     }
+
+    // 한투 API 요청 함수
+    const makeHantuRequest = async () => {
+      const queryParams = new URLSearchParams(cacheParams).toString();
+
+      // 토큰 가져오기
+      let myGetToken;
+      try {
+        myGetToken = await getPeriodToken();
+        if (!myGetToken) {
+          myGetToken = await refreshHantuToken();
+        }
+      } catch (err) {
+        console.error("❌ Redis 토큰 조회 실패 (getPeriodToken):", err);
+        myGetToken = await refreshHantuToken();
+      }
+
+      if (!myGetToken) {
+        throw new Error("토큰이 없습니다.");
+      }
+      const getToken = myGetToken.access_token;
+
+      // 분봉 API 호출
+      const response = await fetch(
+        `https://openapivts.koreainvestment.com:29443/uapi/overseas-price/v1/quotations/inquire-time-itemchartprice?${queryParams}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${getToken}`,
+            "content-type": "application/json; charset=utf-8",
+            appKey: appKey,
+            appSecret: appSecret,
+            tr_id: "HHDFS76950200",
+            custtype: "P", // 개인 (B는 법인)
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      // 성공적인 응답인 경우에만 캐시에 저장
+      if (data.rt_cd === "0" || data.rt_cd === 0) {
+        if (shouldCache) {
+          // 특정 시간 데이터는 영구 캐싱
+          saveCachedData("minutes", cacheParams, data);
+        } else {
+          // 실시간 데이터는 5초 임시 캐싱
+          const realtimeParams = { ...cacheParams, KEYB: "" };
+          saveRealtimeCache(SYMB, realtimeParams, data);
+        }
+      }
+
+      return data;
+    };
+
+    // 큐를 통해 요청 처리
+    const data = await hantuQueue.addRequest(makeHantuRequest);
 
     res.status(200).json(data);
   } catch (err) {
@@ -251,6 +376,13 @@ exports.getDailyChart = async (req, res) => {
       EXCD = "AMS";
     } else {
       EXCD = await earningsRepository.getEarningsEXCD(SYMB);
+      // 데이터베이스 연결 실패 시 기본값 설정
+      if (EXCD === null) {
+        console.warn(
+          `⚠️ Database connection failed for ${SYMB}, using default EXCD`
+        );
+        EXCD = "AMS"; // 기본값으로 AMS 사용
+      }
     }
 
     if (SYMB === "BRK-B") {
@@ -269,41 +401,51 @@ exports.getDailyChart = async (req, res) => {
       MODP,
     };
 
-    // 캐시에서 데이터 확인 (BYMD가 빈 문자열이 아닐 때만 캐싱 적용)
-    if (BYMD !== "") {
+    // 캐싱 전략: BYMD가 있으면 캐싱, 없으면 캐싱 제한
+    const shouldCache = BYMD !== "";
+
+    if (shouldCache) {
       const cachedData = getCachedData("daily", cacheParams);
       if (cachedData) {
         return res.status(200).json(cachedData);
       }
     }
 
-    const queryParams = new URLSearchParams(cacheParams).toString();
+    // 한투 API 요청 함수
+    const makeHantuRequest = async () => {
+      const queryParams = new URLSearchParams(cacheParams).toString();
 
-    const myGetToken = await getPeriodToken();
-    if (!myGetToken) {
-      throw new Error("토큰이 없습니다.");
-    }
-    const getToken = myGetToken.access_token;
-
-    const response = await fetch(
-      `https://openapivts.koreainvestment.com:29443/uapi/overseas-price/v1/quotations/dailyprice?${queryParams}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${getToken}`,
-          "content-type": "application/json",
-          appKey: appKey,
-          appSecret: appSecret,
-          tr_id: "HHDFS76240000",
-        },
+      const myGetToken = await getPeriodToken();
+      if (!myGetToken) {
+        throw new Error("토큰이 없습니다.");
       }
-    );
-    const data = await response.json();
+      const getToken = myGetToken.access_token;
 
-    // 성공적인 응답인 경우에만 캐시에 저장 (BYMD가 빈 문자열이 아닐 때만)
-    if ((data.rt_cd === "0" || data.rt_cd === 0) && BYMD !== "") {
-      saveCachedData("daily", cacheParams, data);
-    }
+      const response = await fetch(
+        `https://openapivts.koreainvestment.com:29443/uapi/overseas-price/v1/quotations/dailyprice?${queryParams}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${getToken}`,
+            "content-type": "application/json",
+            appKey: appKey,
+            appSecret: appSecret,
+            tr_id: "HHDFS76240000",
+          },
+        }
+      );
+      const data = await response.json();
+
+      // 성공적인 응답인 경우에만 캐시에 저장 (BYMD가 있을 때만)
+      if ((data.rt_cd === "0" || data.rt_cd === 0) && shouldCache) {
+        saveCachedData("daily", cacheParams, data);
+      }
+
+      return data;
+    };
+
+    // 큐를 통해 요청 처리
+    const data = await hantuQueue.addRequest(makeHantuRequest);
 
     res.status(200).json(data);
   } catch (err) {
@@ -390,18 +532,19 @@ exports.getEarningsBySymbol = async (req, res) => {
   }
 };
 
-exports.getEarningsLangContent = async (req, res) => {
+exports.getEarningsResultContent = async (req, res) => {
   try {
-    const { id, lang } = req.params;
-    const type = req.params.type || "earnings"; // 현재는 earnings 고정
+    const { id } = req.params;
 
-    const content = await earningsService.fetchEarningsLangContent(id, lang);
-    if (!content) {
-      return res
-        .status(404)
-        .json({ success: false, message: "콘텐츠를 찾을 수 없습니다." });
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "ID 또는 date 파라미터가 필요합니다.",
+      });
     }
-    res.json({ success: true, content });
+    const data = await earningsRepository.getEarningsResultsById(id);
+
+    res.status(200).json({ success: true, data });
   } catch (err) {
     console.error("Earnings lang content error:", err);
     res.status(500).json({ success: false, message: "서버 오류" });
