@@ -1,5 +1,4 @@
 const earningsRepository = require("../repository/earningsRepository");
-const fetch = require("node-fetch");
 const { savePeriodToken } = require("../repository/redisRepository");
 
 function formatRevenue(value) {
