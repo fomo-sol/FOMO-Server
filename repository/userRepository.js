@@ -139,3 +139,15 @@ exports.findUsersBySymbol = async (symbol) => {
   const rows = await pool.query(query, [symbol]);
   return rows;
 };
+
+// 종목 symbol로 stock_id 조회
+exports.findStockIdBySymbol = async (symbol) => {
+  const query = `
+    SELECT id
+    FROM stocks
+    WHERE stock_symbol = ?
+    LIMIT 1
+  `;
+  const rows = await pool.query(query, [symbol]);
+  return rows[0] || null;
+};
