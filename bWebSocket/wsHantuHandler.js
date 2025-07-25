@@ -86,67 +86,70 @@ async function unsubscribeFromSymbol(symbol) {
   }
 }
 
-// 해외장 시간 체크 함수 (한국 시간 기준)
+// 해외장 시간 체크 함수 (미국 동부 시간 기준)
 function isMarketOpen() {
-  // 한국 시간으로 정확히 계산
+  // 미국 동부 시간으로 정확히 계산
   const now = new Date();
-  const koreaTime = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+  const usEasternTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" })
   );
-  const dayOfWeek = koreaTime.getDay();
-  const hour = koreaTime.getHours();
-  const minute = koreaTime.getMinutes();
+  const dayOfWeek = usEasternTime.getDay();
+  const hour = usEasternTime.getHours();
+  const minute = usEasternTime.getMinutes();
   const currentTime = hour * 100 + minute;
 
-  // 주말 체크
+  // 미국 주말 체크 (토요일, 일요일)
   if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return false;
+    return { isOpen: false, reason: "us_weekend" };
   }
 
-  // 한국 시간 기준:
-  // 오전 9시 ~ 오후 5시: 장 닫힘 (한국 장 시간)
-  // 오후 5시 ~ 다음날 오전 9시: 장 열림 (미국 장 시간 + 프리장/애프터장)
-
-  if (currentTime >= 1700 || currentTime < 900) {
-    // 오후 5시 이후 또는 오전 9시 이전 = 장 열림
-    return true;
+  if (currentTime >= 930 && currentTime < 1600) {
+    // 오전 9시 30분 ~ 오후 4시 = 정규 장 시간
+    return { isOpen: true, reason: "us_regular_market" };
+  } else if (currentTime >= 400 && currentTime < 930) {
+    // 오전 4시 ~ 오전 9시 30분 = 프리장
+    return { isOpen: true, reason: "us_pre_market" };
+  } else if (currentTime >= 1600 && currentTime < 2000) {
+    // 오후 4시 ~ 오후 8시 = 애프터장
+    return { isOpen: true, reason: "us_after_market" };
   } else {
-    // 오전 9시 ~ 오후 5시 = 장 닫힘
-    return false;
+    // 오후 8시 ~ 다음날 오전 4시 = 장 닫힘
+    return { isOpen: false, reason: "us_market_closed" };
   }
 }
 
-// 다음 장 시작까지 대기 시간 계산 (한국 시간 기준)
+// 다음 해외장 소켓 시작까지 대기 시간 계산 (미국 동부 시간 기준)
 function getTimeUntilMarketOpen() {
-  // 한국 시간으로 정확히 계산
+  // 미국 동부 시간으로 정확히 계산
   const now = new Date();
-  const koreaTime = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+  const usEasternTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" })
   );
-  const dayOfWeek = koreaTime.getDay();
-  const hour = koreaTime.getHours();
-  const minute = koreaTime.getMinutes();
+  const dayOfWeek = usEasternTime.getDay();
+  const hour = usEasternTime.getHours();
+  const minute = usEasternTime.getMinutes();
   const currentTime = hour * 100 + minute;
 
   let targetTime;
 
   if (dayOfWeek === 0) {
-    // 일요일 - 다음날 월요일 오후 5시 (한국 시간)
-    targetTime = new Date(koreaTime);
+    // 일요일 - 다음날 월요일 오전 4시 (미국 동부 시간, 프리장 시작)
+    targetTime = new Date(usEasternTime);
     targetTime.setDate(targetTime.getDate() + 1);
-    targetTime.setHours(17, 0, 0, 0); // 월요일 오후 5시
+    targetTime.setHours(4, 0, 0, 0); // 월요일 오전 4시
   } else if (dayOfWeek === 6) {
-    // 토요일 - 다음주 월요일 오후 5시 (한국 시간)
-    targetTime = new Date(koreaTime);
+    // 토요일 - 다음주 월요일 오전 4시 (미국 동부 시간, 프리장 시작)
+    targetTime = new Date(usEasternTime);
     targetTime.setDate(targetTime.getDate() + 2);
-    targetTime.setHours(17, 0, 0, 0); // 월요일 오후 5시
-  } else if (currentTime >= 900 && currentTime < 1700) {
-    // 오전 9시 ~ 오후 5시 (장 닫힘) - 당일 오후 5시
-    targetTime = new Date(koreaTime);
-    targetTime.setHours(17, 0, 0, 0); // 당일 오후 5시
+    targetTime.setHours(4, 0, 0, 0); // 월요일 오전 4시
+  } else if (currentTime >= 2000 || currentTime < 400) {
+    // 오후 8시 ~ 다음날 오전 4시 (장 닫힘) - 다음날 오전 4시
+    targetTime = new Date(usEasternTime);
+    targetTime.setDate(targetTime.getDate() + 1);
+    targetTime.setHours(4, 0, 0, 0); // 다음날 오전 4시
   }
 
-  return targetTime ? targetTime.getTime() - koreaTime.getTime() : 0;
+  return targetTime ? targetTime.getTime() - usEasternTime.getTime() : 0;
 }
 
 // Redis 오류 모니터링 및 WebSocket 재연결 관리
@@ -305,13 +308,20 @@ async function connectOverseasWS(
   }
 
   // 해외장 시간 체크 (한국 시간 기준)
-  if (!isMarketOpen()) {
+  const marketStatus = isMarketOpen();
+  if (!marketStatus.isOpen) {
     const waitTime = getTimeUntilMarketOpen();
     const waitMinutes = Math.ceil(waitTime / (1000 * 60));
 
-    console.log(
-      `📅 해외장이 닫혀있습니다. 다음 장 시작까지 ${waitMinutes}분 대기...`
-    );
+    if (marketStatus.reason === "us_weekend") {
+      console.log(
+        `📅 미국 주말입니다. 해외장 소켓을 중단합니다. 다음 해외장 소켓 시작까지 ${waitMinutes}분 대기...`
+      );
+    } else if (marketStatus.reason === "us_market_closed") {
+      console.log(
+        `📅 미국 장이 닫혀있습니다. 해외장 소켓을 중단합니다. 다음 해외장 소켓 시작까지 ${waitMinutes}분 대기...`
+      );
+    }
 
     // 5분마다 장 상태 체크
     setTimeout(() => {
@@ -460,13 +470,21 @@ async function connectOverseasWS(
         return;
       }
 
-      // 해외장이 닫혀있으면 재연결 시도하지 않음
-      if (!isMarketOpen()) {
+      // 한국 장 시간이면 재연결 시도하지 않음
+      const marketStatus = isMarketOpen();
+      if (!marketStatus.isOpen) {
         const waitTime = getTimeUntilMarketOpen();
         const waitMinutes = Math.ceil(waitTime / (1000 * 60));
-        console.log(
-          `📅 해외장이 닫혀있어 재연결을 중단합니다. 다음 장 시작까지 ${waitMinutes}분 대기...`
-        );
+
+        if (marketStatus.reason === "us_weekend") {
+          console.log(
+            `📅 미국 주말이어서 재연결을 중단합니다. 다음 해외장 소켓 시작까지 ${waitMinutes}분 대기...`
+          );
+        } else if (marketStatus.reason === "us_market_closed") {
+          console.log(
+            `📅 미국 장이 닫혀있어서 재연결을 중단합니다. 다음 해외장 소켓 시작까지 ${waitMinutes}분 대기...`
+          );
+        }
 
         // 5분마다 장 상태 체크
         setTimeout(() => {
