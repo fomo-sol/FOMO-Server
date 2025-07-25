@@ -1,10 +1,153 @@
 const WebSocket = require("ws");
 const { refreshRealtimeToken } = require("../service/Scheduler/tokenScheduler");
-const { broadcastRealtime } = require("./wsClientHandler");
+const {
+  broadcastRealtime,
+  getServerSubscriptions,
+  setHantuHandlers,
+} = require("./wsClientHandler");
 const { redis } = require("../config/redis");
 
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+// 동적 구독 관리
+let currentApprovalKey = null;
+let currentWebSocketInstance = null;
+
+// 한투 WebSocket에 구독 요청 보내기
+async function subscribeToSymbol(symbol) {
+  if (
+    !currentWebSocketInstance ||
+    currentWebSocketInstance.readyState !== WebSocket.OPEN
+  ) {
+    console.warn(`⚠️ WebSocket 연결이 없어 ${symbol} 구독을 건너뜁니다.`);
+    return false;
+  }
+
+  if (!currentApprovalKey) {
+    console.warn(`⚠️ Approval key가 없어 ${symbol} 구독을 건너뜁니다.`);
+    return false;
+  }
+
+  try {
+    const msg = {
+      header: {
+        approval_key: currentApprovalKey,
+        custtype: "P",
+        tr_type: "1",
+        "content-type": "utf-8",
+      },
+      body: {
+        input: { tr_id: "HDFSASP0", tr_key: `DNAS${symbol}` },
+      },
+    };
+
+    currentWebSocketInstance.send(JSON.stringify(msg));
+    console.log(`📤 한투 구독 요청: ${symbol}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ ${symbol} 구독 요청 실패:`, error.message);
+    return false;
+  }
+}
+
+// 한투 WebSocket에서 구독 해제 요청 보내기
+async function unsubscribeFromSymbol(symbol) {
+  if (
+    !currentWebSocketInstance ||
+    currentWebSocketInstance.readyState !== WebSocket.OPEN
+  ) {
+    return false;
+  }
+
+  if (!currentApprovalKey) {
+    return false;
+  }
+
+  try {
+    const msg = {
+      header: {
+        approval_key: currentApprovalKey,
+        custtype: "P",
+        tr_type: "2", // 구독 해제
+        "content-type": "utf-8",
+      },
+      body: {
+        input: { tr_id: "HDFSASP0", tr_key: `DNAS${symbol}` },
+      },
+    };
+
+    currentWebSocketInstance.send(JSON.stringify(msg));
+    console.log(`📤 한투 구독 해제 요청: ${symbol}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ ${symbol} 구독 해제 요청 실패:`, error.message);
+    return false;
+  }
+}
+
+// 해외장 시간 체크 함수 (한국 시간 기준)
+function isMarketOpen() {
+  // 한국 시간으로 정확히 계산
+  const now = new Date();
+  const koreaTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+  );
+  const dayOfWeek = koreaTime.getDay();
+  const hour = koreaTime.getHours();
+  const minute = koreaTime.getMinutes();
+  const currentTime = hour * 100 + minute;
+
+  // 주말 체크
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return false;
+  }
+
+  // 한국 시간 기준:
+  // 오전 9시 ~ 오후 5시: 장 닫힘 (한국 장 시간)
+  // 오후 5시 ~ 다음날 오전 9시: 장 열림 (미국 장 시간 + 프리장/애프터장)
+
+  if (currentTime >= 1700 || currentTime < 900) {
+    // 오후 5시 이후 또는 오전 9시 이전 = 장 열림
+    return true;
+  } else {
+    // 오전 9시 ~ 오후 5시 = 장 닫힘
+    return false;
+  }
+}
+
+// 다음 장 시작까지 대기 시간 계산 (한국 시간 기준)
+function getTimeUntilMarketOpen() {
+  // 한국 시간으로 정확히 계산
+  const now = new Date();
+  const koreaTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+  );
+  const dayOfWeek = koreaTime.getDay();
+  const hour = koreaTime.getHours();
+  const minute = koreaTime.getMinutes();
+  const currentTime = hour * 100 + minute;
+
+  let targetTime;
+
+  if (dayOfWeek === 0) {
+    // 일요일 - 다음날 월요일 오후 5시 (한국 시간)
+    targetTime = new Date(koreaTime);
+    targetTime.setDate(targetTime.getDate() + 1);
+    targetTime.setHours(17, 0, 0, 0); // 월요일 오후 5시
+  } else if (dayOfWeek === 6) {
+    // 토요일 - 다음주 월요일 오후 5시 (한국 시간)
+    targetTime = new Date(koreaTime);
+    targetTime.setDate(targetTime.getDate() + 2);
+    targetTime.setHours(17, 0, 0, 0); // 월요일 오후 5시
+  } else if (currentTime >= 900 && currentTime < 1700) {
+    // 오전 9시 ~ 오후 5시 (장 닫힘) - 당일 오후 5시
+    targetTime = new Date(koreaTime);
+    targetTime.setHours(17, 0, 0, 0); // 당일 오후 5시
+  }
+
+  return targetTime ? targetTime.getTime() - koreaTime.getTime() : 0;
+}
 
 // Redis 오류 모니터링 및 WebSocket 재연결 관리
 let currentWebSocket = null;
@@ -161,6 +304,23 @@ async function connectOverseasWS(
     return;
   }
 
+  // 해외장 시간 체크 (한국 시간 기준)
+  if (!isMarketOpen()) {
+    const waitTime = getTimeUntilMarketOpen();
+    const waitMinutes = Math.ceil(waitTime / (1000 * 60));
+
+    console.log(
+      `📅 해외장이 닫혀있습니다. 다음 장 시작까지 ${waitMinutes}분 대기...`
+    );
+
+    // 5분마다 장 상태 체크
+    setTimeout(() => {
+      connectOverseasWS(appKey, appSecret, trKey, retryCount);
+    }, Math.min(waitTime, 5 * 60 * 1000)); // 최대 5분 대기
+
+    return;
+  }
+
   console.log(`🔄 WebSocket 연결 시도 ${retryCount + 1}/${MAX_RETRY_COUNT}`);
 
   try {
@@ -216,7 +376,14 @@ async function connectOverseasWS(
       console.log("✅ WebSocket 연결됨");
       retryCount = 0; // 연결 성공 시 재시도 횟수 초기화
 
-      // 구독 메시지 전송
+      // 전역 변수 설정
+      currentApprovalKey = approvalKey;
+      currentWebSocketInstance = ws;
+
+      // 클라이언트 핸들러에 함수들 설정
+      setHantuHandlers(subscribeToSymbol, unsubscribeFromSymbol);
+
+      // 초기 구독 메시지 전송 (기본 종목들)
       PRE_SUBSCRIBE_LIST.forEach(({ tr_id, tr_key }) => {
         const msg = {
           header: {
@@ -290,6 +457,21 @@ async function connectOverseasWS(
 
       if (code === 1000) {
         console.log("✅ 정상 종료");
+        return;
+      }
+
+      // 해외장이 닫혀있으면 재연결 시도하지 않음
+      if (!isMarketOpen()) {
+        const waitTime = getTimeUntilMarketOpen();
+        const waitMinutes = Math.ceil(waitTime / (1000 * 60));
+        console.log(
+          `📅 해외장이 닫혀있어 재연결을 중단합니다. 다음 장 시작까지 ${waitMinutes}분 대기...`
+        );
+
+        // 5분마다 장 상태 체크
+        setTimeout(() => {
+          connectOverseasWS(appKey, appSecret, trKey, 0); // 재시도 횟수 초기화
+        }, Math.min(waitTime, 5 * 60 * 1000));
         return;
       }
 
