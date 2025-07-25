@@ -10,4 +10,14 @@ router.get("/decisions/:id", fomcController.getFomcDecisions); // /api/fomc/deci
 
 router.get("/minutes/:id", fomcController.getFomcminutes); // /api/fomc/minutes/:id
 
+// 날짜 기반 매칭 API
+router.get(
+  "/decisions/:date/minutes",
+  fomcController.getFomcMinutesByDecisionDate
+);
+router.get(
+  "/minutes/:date/decision",
+  fomcController.getFomcDecisionByMinutesDate
+);
+
 module.exports = router;
