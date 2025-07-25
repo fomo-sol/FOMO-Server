@@ -1,5 +1,4 @@
 const pool = require("../config/db");
-
 exports.getAllNotifications = async () => {
     return [
         {
@@ -26,6 +25,7 @@ exports.getCustomNotifications = async () => {
             created_at: "2025-07-11T09:00:00Z",
         },
     ];
+
 };
 
 exports.insertGlobalAlert = async (alert_content) => {

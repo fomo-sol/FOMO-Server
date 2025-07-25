@@ -40,8 +40,8 @@ async function refreshRealtimeToken() {
   }
 }
 
-// 하루에 2번 실행: 오전 8시, 오후 8시 (한국시간 기준)
-cron.schedule("0 8,20 * * *", () => {
+// 하루 2시간마다 실행 (한국시간 기준)
+cron.schedule("0 */2 * * *", () => {
   console.log("🔄 Running Hantu token refresh...");
   refreshToken();
 });

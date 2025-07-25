@@ -89,11 +89,47 @@ exports.registerFcmToken = async (req, res, next) => {
     // 중복 검사: 이미 등록된 토큰이 있다면 → 다른 유저의 토큰 삭제
     const existing = await userService.findUserByFcmToken(token);
     if (existing && existing.id !== user_id) {
-      console.warn("⚠️ 중복 토큰 발견 → 기존 유저의 FCM 토큰 제거:", existing.id);
+      console.warn(
+        "⚠️ 중복 토큰 발견 → 기존 유저의 FCM 토큰 제거:",
+        existing.id
+      );
       await userService.removeFcmToken(existing.id);
     }
   } catch (err) {
-    console.error("[CONTROLLER ERROR] registerFcmToken 실패:", err.stack || err);
+    console.error(
+      "[CONTROLLER ERROR] registerFcmToken 실패:",
+      err.stack || err
+    );
     next(err);
+  }
+};
+
+exports.refreshToken = async (req, res) => {
+  try {
+    // Authorization 헤더에서 토큰 추출
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "토큰이 제공되지 않았습니다.",
+      });
+    }
+
+    const token = authHeader.substring(7); // 'Bearer ' 제거
+    console.log("[CONTROLLER] 토큰 갱신 요청:", token.substring(0, 20) + "...");
+
+    const { user, token: newToken } = await userService.refreshToken(token);
+
+    res.status(200).json({
+      success: true,
+      message: "토큰이 성공적으로 갱신되었습니다.",
+      data: { user, token: newToken },
+    });
+  } catch (error) {
+    console.error("[CONTROLLER REFRESH ERROR]", error.message);
+    res.status(error.code || 500).json({
+      success: false,
+      message: error.message || "토큰 갱신 실패",
+    });
   }
 };

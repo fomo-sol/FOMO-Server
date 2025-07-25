@@ -241,7 +241,10 @@ const getStocksOrderRankedByOffset = async (limit, offset) => {
   }
 };
 
-const getEarningsEXCD = async (symbol) => {
+const getEarningsEXCD = async (symbol, retryCount = 0) => {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000; // 1초
+
   try {
     const conn = await pool.getConnection();
     const rows = await conn.query(
@@ -256,7 +259,40 @@ const getEarningsEXCD = async (symbol) => {
       throw new Error("Symbol not found");
     }
   } catch (err) {
-    console.error("getEarningsEXCD error:", err);
+    console.error(
+      `getEarningsEXCD error (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`,
+      err.message
+    );
+
+    // 연결 관련 에러인지 확인
+    const isConnectionError =
+      err.errno === 45028 || // pool timeout
+      err.errno === 45012 || // connection timeout
+      err.code === "ER_CONNECTION_TIMEOUT" ||
+      err.code === "ECONNRESET" ||
+      err.code === "ENOTFOUND" ||
+      err.code === "ETIMEDOUT";
+
+    // 재시도 가능한 에러이고 최대 재시도 횟수에 도달하지 않았다면 재시도
+    if (isConnectionError && retryCount < MAX_RETRIES) {
+      console.log(
+        `🔄 Retrying getEarningsEXCD for ${symbol} in ${RETRY_DELAY}ms...`
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, RETRY_DELAY * (retryCount + 1))
+      );
+      return getEarningsEXCD(symbol, retryCount + 1);
+    }
+
+    // 재시도 불가능하거나 최대 재시도 횟수에 도달한 경우
+    if (isConnectionError) {
+      console.error(
+        `❌ Max retries reached for getEarningsEXCD (${symbol}). Returning null.`
+      );
+      return null; // 에러를 throw하지 않고 null 반환
+    }
+
+    // 다른 에러는 그대로 throw
     throw err;
   }
 };
