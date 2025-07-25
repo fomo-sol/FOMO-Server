@@ -225,17 +225,23 @@ exports.notifyFomcUploadAlarm = async (req, res, next) => {
   try {
     const moment = require("moment-timezone");
     const kstDate = moment.tz(date, "Asia/Seoul");
-    const dateStr = kstDate.format("YYYY년 M월 D일");
+    const year = kstDate.year();
+    const month = kstDate.month() + 1;
+    const day = kstDate.date();
     let typeStr = "";
+    let resultStr = "";
     if (type === "statement") {
       typeStr = "금리 발표";
+      resultStr = "금리 결정 결과";
     } else if (type === "minutes") {
       typeStr = "의사록 공개";
+      resultStr = "의사록";
     } else {
       typeStr = type;
+      resultStr = type;
     }
-    // 메시지 포맷 변경: '{dateStr}의 FOMC {typeStr}가 업로드되었습니다.'
-    const message = `${dateStr}의 FOMC ${typeStr}가 업로드되었습니다.`;
+    // 메시지 포맷 변경
+    const message = `📄 [FOMC] ${year}년 ${month}월 ${day}일 ${resultStr}가 공개되었습니다.`;
 
     // FCM 전송
     const users = await userRepository.findAllWithFcmToken();
@@ -291,7 +297,11 @@ exports.notifyEarningsPreAlarm = async (req, res) => {
       return res.json({ success: true, message: "알림 대상 유저 없음" });
     }
 
-    const message = `[D-1] ${symbol} 실적 발표가 내일(${date}) 예정되어 있습니다.`;
+    // 알림 메시지 포맷 개선
+    const dateObj = new Date(date);
+    const month = dateObj.getMonth() + 1;
+    const day = dateObj.getDate();
+    const message = `📢 [D-1 알림] 내일(${month}/${day}) ${symbol}의 실적 발표가 예정되어 있습니다.`;
 
     for (const user of users) {
       // FCM
@@ -314,7 +324,7 @@ exports.notifyEarningsPreAlarm = async (req, res) => {
       }
       // DB 저장 (user_alerts)
       try {
-        await notificationsRepository.insertUserAlert(user.id, message, 'earning_global');
+        await notificationsRepository.insertUserAlert(user.id, message, 'earning_global', stock_id);
       } catch (err) {
         console.error("[ERROR] user_alerts 저장 실패:", err.message);
       }
@@ -365,7 +375,7 @@ exports.notifyEarningsSummaryUpload = async (req, res) => {
 
       console.log("📦 Parsed JSON:", summary);
       prediction = summary.prediction;
-      message = `[${symbol}] ${date}의 요약이 업로드되었습니다.\n\n요약 내용 => ${prediction}`; // ✅ 여기 추가
+      message = `📄 [${symbol}] ${date} 실적 요약이 업로드되었습니다.\n\n💬 요약: ${prediction}`;
     } catch (err) {
       console.error("[ERROR] S3 요약 읽기 실패:", err);
     }
@@ -396,7 +406,14 @@ exports.notifyEarningsSummaryUpload = async (req, res) => {
       }
       // DB 저장 (user_alerts)
       try {
-        await notificationsRepository.insertUserAlert(user.id, message, 'earning_analysis');
+        let stockId = null;
+        try {
+          const stockRow = await userRepository.findStockIdBySymbol(symbol);
+          stockId = stockRow ? stockRow.id : null;
+        } catch (err) {
+          console.error("[ERROR] stock_id 조회 실패:", err);
+        }
+        await notificationsRepository.insertUserAlert(user.id, message, 'earning_analysis', stockId);
       } catch (err) {
         console.error("[ERROR] user_alerts 저장 실패:", err.message);
       }

@@ -33,7 +33,7 @@ exports.insertGlobalAlert = async (alert_content) => {
     await pool.query(query, [alert_content]);
 };
 
-exports.insertUserAlert = async (user_id, alert_content, status = 'fomc_analysis') => {
-    const query = `INSERT INTO user_alerts (user_id, alert_content, status) VALUES (?, ?, ?)`;
-    await pool.query(query, [user_id, alert_content, status]);
+exports.insertUserAlert = async (user_id, alert_content, status = 'fomc_analysis', stock_id = null) => {
+    const query = `INSERT INTO user_alerts (user_id, alert_content, status, stock_id) VALUES (?, ?, ?, ?)`;
+    await pool.query(query, [user_id, alert_content, status, stock_id]);
 };
