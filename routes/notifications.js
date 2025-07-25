@@ -11,4 +11,7 @@ router.post("/notify", controller.notifyByStatementDate);
 router.post("/prealarm", controller.notifyFomcPreAlarm);
 router.post("/uploaded", controller.notifyFomcUploadAlarm);
 
+router.post("/earnings/prealarm", controller.notifyEarningsPreAlarm); // 하루 전 알림
+router.post("/earnings/summary", controller.notifyEarningsSummaryUpload); // 요약 업로드 알림
+
 module.exports = router;

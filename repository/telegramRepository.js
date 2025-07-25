@@ -7,6 +7,8 @@ exports.updateTelegramId = async (userId, telegramId) => {
             [telegramId, userId]
         );
 
+        console.log("[REPO] UPDATE 결과:", result);
+
         if (result.affectedRows === 0) {
             const err = new Error("해당 사용자를 찾을 수 없습니다.");
             err.code = 404;

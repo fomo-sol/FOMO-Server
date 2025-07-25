@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+
 exports.getUserNotifications = async (userId) => {
   const rows = await pool.execute(
     `SELECT * FROM user_alerts WHERE user_id = ? ORDER BY created_at DESC`,
@@ -31,22 +32,6 @@ exports.getLatestNotification = async () => {
   );
   return rows;
 };
-exports.getAllNotifications = async () => {
-  return [
-    {
-      id: "1",
-      type: "fomc",
-      message: "7월 FOMC 의사록이 공개되었습니다.",
-      created_at: "2025-07-10T12:00:00Z",
-    },
-    {
-      id: "2",
-      type: "earnings",
-      message: "테슬라 실적 발표가 오늘 예정되어 있습니다.",
-      created_at: "2025-07-11T08:00:00Z",
-    },
-  ];
-};
 
 exports.getCustomAnalysisNotifications = async (userId) => {
   const rows = await pool.execute(
@@ -58,3 +43,14 @@ exports.getCustomAnalysisNotifications = async (userId) => {
   );
   return rows;
 };
+
+exports.insertGlobalAlert = async (alert_content) => {
+    const query = `INSERT INTO global_alerts (alert_content) VALUES (?)`;
+    await pool.query(query, [alert_content]);
+};
+
+exports.insertUserAlert = async (user_id, alert_content, status = 'fomc_analysis', stock_id = null) => {
+    const query = `INSERT INTO user_alerts (user_id, alert_content, status, stock_id) VALUES (?, ?, ?, ?)`;
+    await pool.query(query, [user_id, alert_content, status, stock_id]);
+};
+

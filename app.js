@@ -12,10 +12,7 @@ require("./jobs/dailyNotificationJob");
 
 const app = express();
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://15.165.199.80:3000",
-];
+const allowedOrigins = ["http://localhost:3000", "http://15.165.199.80:3000"];
 
 const corsOptions = {
   origin: (origin, callback) => {
