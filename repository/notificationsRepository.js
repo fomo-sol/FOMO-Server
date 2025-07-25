@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 const pool = require("../config/db");
-
-=======
->>>>>>> 2dcd71c (Fix line endings across all files)
 exports.getAllNotifications = async () => {
     return [
         {
@@ -29,7 +25,7 @@ exports.getCustomNotifications = async () => {
             created_at: "2025-07-11T09:00:00Z",
         },
     ];
-<<<<<<< HEAD
+
 };
 
 exports.insertGlobalAlert = async (alert_content) => {
@@ -37,9 +33,7 @@ exports.insertGlobalAlert = async (alert_content) => {
     await pool.query(query, [alert_content]);
 };
 
-exports.insertUserAlert = async (user_id, alert_content, status = 'fomc_analysis') => {
-    const query = `INSERT INTO user_alerts (user_id, alert_content, status) VALUES (?, ?, ?)`;
-    await pool.query(query, [user_id, alert_content, status]);
-=======
->>>>>>> 2dcd71c (Fix line endings across all files)
+exports.insertUserAlert = async (user_id, alert_content, status = 'fomc_analysis', stock_id = null) => {
+    const query = `INSERT INTO user_alerts (user_id, alert_content, status, stock_id) VALUES (?, ?, ?, ?)`;
+    await pool.query(query, [user_id, alert_content, status, stock_id]);
 };
