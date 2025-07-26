@@ -39,6 +39,15 @@ exports.getFomcMinutesByDecisionDate = async (decisionDate) => {
   }
 };
 
+exports.getFomcAllDate = async () => {
+  try {
+    const data = await fomcRepository.getFomcAllDate();
+    return data;
+  } catch (err) {
+    console.error("Error in getFomcAllDate service:", err);
+    throw err;
+  }
+};
 // 의사록 날짜로 해당하는 결정 찾기
 exports.getFomcDecisionByMinutesDate = async (minutesDate) => {
   try {

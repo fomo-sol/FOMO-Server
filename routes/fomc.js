@@ -20,4 +20,7 @@ router.get(
   fomcController.getFomcDecisionByMinutesDate
 );
 
+// /api/fomc/fomc-all-date
+router.get("/fomc-all-date", fomcController.getFomcAllDate);
+
 module.exports = router;

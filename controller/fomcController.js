@@ -191,6 +191,19 @@ exports.getFomcMinutesByDecisionDate = async (req, res) => {
   }
 };
 
+exports.getFomcAllDate = async (req, res) => {
+  try {
+    const data = await fomcService.getFomcAllDate();
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("FOMC all date error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 // 의사록 날짜로 해당하는 결정 찾기
 exports.getFomcDecisionByMinutesDate = async (req, res) => {
   try {
