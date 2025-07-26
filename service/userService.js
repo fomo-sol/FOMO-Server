@@ -93,7 +93,7 @@ exports.refreshToken = async (token) => {
     const newToken = jwt.sign(
       { id: user.id, email: user.email, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: "2h" }
+      { expiresIn: "1d" }
     );
 
     delete user.passwd;
