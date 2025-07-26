@@ -15,7 +15,21 @@ exports.register = async (req, res) => {
   } catch (error) {
     console.error("[CONTROLLER ERROR]", error);
 
+    // 중복 이메일 에러 처리
+    if (
+      error.code === "ER_DUP_ENTRY" &&
+      error.sqlMessage &&
+      error.sqlMessage.includes("email")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "이미 사용 중인 이메일입니다.",
+      });
+    }
+
+    // 기타 에러
     res.status(STATUS.INTERNAL_ERROR.code).json({
+      success: false,
       message: error.message || STATUS.INTERNAL_ERROR.message,
     });
   }
