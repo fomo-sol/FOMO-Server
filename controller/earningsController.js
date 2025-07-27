@@ -25,7 +25,7 @@ class HantuRequestQueue {
     this.queue = [];
     this.processing = false;
     this.lastRequestTime = 0;
-    this.minInterval = 100; // 최소 100ms 간격 (초당 10회 제한)
+    this.minInterval = 500; // 최소 500ms 간격 (초당 2회 제한으로 조정)
   }
 
   async addRequest(requestFn) {
