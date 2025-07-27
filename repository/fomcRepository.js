@@ -69,6 +69,47 @@ async function getFomcDecision({ year }) {
   }
 }
 
+async function getFomcAllDate() {
+  try {
+    const conn = await pool.getConnection();
+
+    // fomc_minutes 테이블에서 날짜 조회
+    const minutesQuery = `
+      SELECT DISTINCT DATE(fomc_release_date) as minutes_release_date FROM fomc_minutes
+    `;
+    const minutesRows = await conn.query(minutesQuery);
+
+    // fomc_rate_decisions 테이블에서 날짜 조회
+    const decisionsQuery = `
+      SELECT DISTINCT DATE(fed_release_date) as fed_release_date FROM fomc_rate_decisions
+    `;
+    const decisionsRows = await conn.query(decisionsQuery);
+
+    conn.release();
+
+    // 두 결과를 병합하고 중복 제거
+    const allDates = [
+      ...minutesRows.map((row) => ({
+        minutes_release_date: row.minutes_release_date,
+      })),
+      ...decisionsRows.map((row) => ({
+        fed_release_date: row.fed_release_date,
+      })),
+    ];
+
+    // 날짜순으로 정렬 (minutes_release_date와 fed_release_date 모두 고려)
+    allDates.sort((a, b) => {
+      const dateA = new Date(a.minutes_release_date || a.fed_release_date);
+      const dateB = new Date(b.minutes_release_date || b.fed_release_date);
+      return dateA - dateB;
+    });
+
+    return allDates;
+  } catch (err) {
+    console.error("Error fetching FOMC all date:", err);
+    throw err;
+  }
+}
 // FOMC 결정 성명서와 연설문 조회 (날짜로)
 async function getFomcContentByDate(date) {
   try {
@@ -198,13 +239,6 @@ exports.fetchFomcContentByLang = async (id, type, lang) => {
   return contentSet?.[lang] || null;
 };
 
-exports.getFomcMinute = getFomcMinute;
-exports.getFomcDecision = getFomcDecision;
-exports.getFomcContentByDate = getFomcContentByDate;
-exports.getFomcMinutesByDate = getFomcMinutesByDate;
-exports.getFomcMinutesByDecisionDate = getFomcMinutesByDecisionDate;
-exports.getFomcDecisionByMinutesDate = getFomcDecisionByMinutesDate;
-
 // 결정 날짜로 해당하는 의사록 찾기
 async function getFomcMinutesByDecisionDate(decisionDate) {
   try {
@@ -235,8 +269,8 @@ async function getFomcMinutesByDecisionDate(decisionDate) {
     throw err;
   }
 }
-
 // 의사록 날짜로 해당하는 결정 찾기
+
 async function getFomcDecisionByMinutesDate(minutesDate) {
   try {
     const conn = await pool.getConnection();
@@ -267,3 +301,11 @@ async function getFomcDecisionByMinutesDate(minutesDate) {
     throw err;
   }
 }
+
+exports.getFomcMinute = getFomcMinute;
+exports.getFomcDecision = getFomcDecision;
+exports.getFomcContentByDate = getFomcContentByDate;
+exports.getFomcMinutesByDate = getFomcMinutesByDate;
+exports.getFomcMinutesByDecisionDate = getFomcMinutesByDecisionDate;
+exports.getFomcDecisionByMinutesDate = getFomcDecisionByMinutesDate;
+exports.getFomcAllDate = getFomcAllDate;
