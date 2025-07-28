@@ -163,3 +163,70 @@ exports.getFomcContentByLang = async (req, res) => {
     res.status(500).json({ success: false, message: "서버 오류" });
   }
 };
+
+// 결정 날짜로 해당하는 의사록 찾기
+exports.getFomcMinutesByDecisionDate = async (req, res) => {
+  try {
+    const { date } = req.params;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date parameter is required",
+      });
+    }
+
+    const minutes = await fomcService.getFomcMinutesByDecisionDate(date);
+
+    res.json({
+      success: true,
+      data: minutes,
+    });
+  } catch (error) {
+    console.error("FOMC minutes by decision date error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.getFomcAllDate = async (req, res) => {
+  try {
+    const data = await fomcService.getFomcAllDate();
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("FOMC all date error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// 의사록 날짜로 해당하는 결정 찾기
+exports.getFomcDecisionByMinutesDate = async (req, res) => {
+  try {
+    const { date } = req.params;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date parameter is required",
+      });
+    }
+
+    const decision = await fomcService.getFomcDecisionByMinutesDate(date);
+
+    res.json({
+      success: true,
+      data: decision,
+    });
+  } catch (error) {
+    console.error("FOMC decision by minutes date error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

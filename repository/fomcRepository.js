@@ -4,17 +4,24 @@ async function getFomcMinute({ year }) {
   try {
     console.log(year);
     const conn = await pool.getConnection();
+
+    // 해당 연도 2월부터 다음 연도 1월까지 조회
     const query = `
-            SELECT 
-                *,
-                DATE_FORMAT(fomc_release_date, '%Y-%m-%d') as fomc_release_date_str,
-                CONCAT(fomc_release_date, ' 14:00:00') as fomc_release_datetime,
-                CONVERT_TZ(CONCAT(fomc_release_date, ' 14:00:00'), '+00:00', 'America/New_York') as fomc_release_date_est
-            FROM fomc_minutes
-            WHERE YEAR(fomc_release_date) = ?
-            ORDER BY fomc_release_date ASC
-        `;
-    const rows = await conn.query(query, [year]);
+      SELECT
+        *,
+        DATE_FORMAT(fomc_release_date, '%Y-%m-%d') as fomc_release_date_str,
+        CONCAT(fomc_release_date, ' 14:00:00') as fomc_release_datetime,
+        CONVERT_TZ(CONCAT(fomc_release_date, ' 14:00:00'), '+00:00', 'America/New_York') as fomc_release_date_est
+      FROM fomc_minutes
+      WHERE (
+              (YEAR(fomc_release_date) = ? AND MONTH(fomc_release_date) >= 2)
+                OR
+              (YEAR(fomc_release_date) = ? + 1 AND MONTH(fomc_release_date) = 1)
+              )
+      ORDER BY fomc_release_date ASC
+    `;
+    const rows = await conn.query(query, [year, year]);
+
     conn.release();
     return rows;
   } catch (err) {
@@ -28,22 +35,22 @@ async function getFomcDecision({ year }) {
     const conn = await pool.getConnection();
 
     const query = `
-            SELECT 
-                id,
-                fed_start_time,
-                fed_release_date,
-                fed_actual_rate,
-                fed_forecast_rate,
-                fed_previous_rate,
-                created_at,
-                DATE_FORMAT(fed_release_date, '%Y-%m-%d') as fed_release_date_str,
-                CONCAT(fed_release_date, ' 14:00:00') as fed_release_datetime,
-                CONVERT_TZ(CONCAT(fed_release_date, ' 14:00:00'), '+00:00', 'America/New_York') as fed_release_date_est,
-                CONVERT_TZ(fed_start_time, '+00:00', 'America/New_York') as fed_start_time_est
-            FROM fomc_rate_decisions
-            WHERE YEAR(fed_release_date) = ?
-            ORDER BY fed_release_date ASC
-        `;
+      SELECT
+        id,
+        fed_start_time,
+        fed_release_date,
+        fed_actual_rate,
+        fed_forecast_rate,
+        fed_previous_rate,
+        created_at,
+        DATE_FORMAT(fed_release_date, '%Y-%m-%d') as fed_release_date_str,
+        CONCAT(fed_release_date, ' 14:00:00') as fed_release_datetime,
+        CONVERT_TZ(CONCAT(fed_release_date, ' 14:00:00'), '+00:00', 'America/New_York') as fed_release_date_est,
+        CONVERT_TZ(fed_start_time, '+00:00', 'America/New_York') as fed_start_time_est
+      FROM fomc_rate_decisions
+      WHERE YEAR(fed_release_date) = ?
+      ORDER BY fed_release_date ASC
+    `;
     console.log("🔍 FOMC 쿼리 실행:", { year });
     const rows = await conn.query(query, [year]);
     console.log("📊 FOMC 쿼리 결과:", rows.length, "개 행");
@@ -62,6 +69,47 @@ async function getFomcDecision({ year }) {
   }
 }
 
+async function getFomcAllDate() {
+  try {
+    const conn = await pool.getConnection();
+
+    // fomc_minutes 테이블에서 날짜 조회
+    const minutesQuery = `
+      SELECT DISTINCT DATE(fomc_release_date) as minutes_release_date FROM fomc_minutes
+    `;
+    const minutesRows = await conn.query(minutesQuery);
+
+    // fomc_rate_decisions 테이블에서 날짜 조회
+    const decisionsQuery = `
+      SELECT DISTINCT DATE(fed_release_date) as fed_release_date FROM fomc_rate_decisions
+    `;
+    const decisionsRows = await conn.query(decisionsQuery);
+
+    conn.release();
+
+    // 두 결과를 병합하고 중복 제거
+    const allDates = [
+      ...minutesRows.map((row) => ({
+        minutes_release_date: row.minutes_release_date,
+      })),
+      ...decisionsRows.map((row) => ({
+        fed_release_date: row.fed_release_date,
+      })),
+    ];
+
+    // 날짜순으로 정렬 (minutes_release_date와 fed_release_date 모두 고려)
+    allDates.sort((a, b) => {
+      const dateA = new Date(a.minutes_release_date || a.fed_release_date);
+      const dateB = new Date(b.minutes_release_date || b.fed_release_date);
+      return dateA - dateB;
+    });
+
+    return allDates;
+  } catch (err) {
+    console.error("Error fetching FOMC all date:", err);
+    throw err;
+  }
+}
 // FOMC 결정 성명서와 연설문 조회 (날짜로)
 async function getFomcContentByDate(date) {
   try {
@@ -69,7 +117,7 @@ async function getFomcContentByDate(date) {
 
     // 1. 해당 날짜의 fomc_rate_decisions 조회
     const decisionQuery = `
-      SELECT 
+      SELECT
         frd.*,
         DATE_FORMAT(frd.fed_release_date, '%Y-%m-%d') as fed_release_date_str,
         CONCAT(frd.fed_release_date, ' 14:00:00') as fed_release_datetime,
@@ -89,14 +137,14 @@ async function getFomcContentByDate(date) {
 
     // 2. 해당 결정의 성명서 조회
     const statementsQuery = `
-      SELECT * FROM fomc_decision_statements 
+      SELECT * FROM fomc_decision_statements
       WHERE fomc_rate_decisions_id = ?
     `;
     const statements = await conn.query(statementsQuery, [decisionId]);
 
     // 3. 해당 결정의 연설문 조회
     const speechesQuery = `
-      SELECT * FROM fomc_speeches 
+      SELECT * FROM fomc_speeches
       WHERE fomc_rate_decisions_id = ?
     `;
     const speeches = await conn.query(speechesQuery, [decisionId]);
@@ -121,7 +169,7 @@ async function getFomcMinutesByDate(date) {
 
     // 1. 해당 날짜의 fomc_minutes 조회
     const minutesQuery = `
-      SELECT 
+      SELECT
         fm.*,
         DATE_FORMAT(fm.fomc_release_date, '%Y-%m-%d') as fomc_release_date_str,
         CONCAT(fm.fomc_release_date, ' 14:00:00') as fomc_release_datetime,
@@ -140,7 +188,7 @@ async function getFomcMinutesByDate(date) {
 
     // 2. 해당 의사록의 스크립트 조회
     const scriptQuery = `
-      SELECT * FROM fomc_minutes_script 
+      SELECT * FROM fomc_minutes_script
       WHERE fomc_minutes_id = ?
     `;
     const scripts = await conn.query(scriptQuery, [minutesId]);
@@ -191,7 +239,73 @@ exports.fetchFomcContentByLang = async (id, type, lang) => {
   return contentSet?.[lang] || null;
 };
 
+// 결정 날짜로 해당하는 의사록 찾기
+async function getFomcMinutesByDecisionDate(decisionDate) {
+  try {
+    const conn = await pool.getConnection();
+
+    const query = `
+      SELECT 
+        fm.*,
+        DATE_FORMAT(fm.fomc_release_date, '%Y-%m-%d') as fomc_release_date_str,
+        CONCAT(fm.fomc_release_date, ' 14:00:00') as fomc_release_datetime,
+        CONVERT_TZ(CONCAT(fm.fomc_release_date, ' 14:00:00'), '+00:00', 'America/New_York') as fomc_release_date_est
+      FROM fomc_minutes fm
+      WHERE fm.fomc_release_date > ?
+      ORDER BY fm.fomc_release_date ASC
+      LIMIT 1
+    `;
+
+    const minutes = await conn.query(query, [decisionDate]);
+    conn.release();
+
+    if (minutes.length === 0) {
+      return null;
+    }
+
+    return minutes[0];
+  } catch (err) {
+    console.error("Error fetching FOMC minutes by decision date:", err);
+    throw err;
+  }
+}
+// 의사록 날짜로 해당하는 결정 찾기
+
+async function getFomcDecisionByMinutesDate(minutesDate) {
+  try {
+    const conn = await pool.getConnection();
+
+    const query = `
+      SELECT 
+        frd.*,
+        DATE_FORMAT(frd.fed_release_date, '%Y-%m-%d') as fed_release_date_str,
+        CONCAT(frd.fed_release_date, ' 14:00:00') as fed_release_datetime,
+        CONVERT_TZ(CONCAT(frd.fed_release_date, ' 14:00:00'), '+00:00', 'America/New_York') as fed_release_date_est,
+        CONVERT_TZ(frd.fed_start_time, '+00:00', 'America/New_York') as fed_start_time_est
+      FROM fomc_rate_decisions frd
+      WHERE frd.fed_release_date < ?
+      ORDER BY frd.fed_release_date DESC
+      LIMIT 1
+    `;
+
+    const decisions = await conn.query(query, [minutesDate]);
+    conn.release();
+
+    if (decisions.length === 0) {
+      return null;
+    }
+
+    return decisions[0];
+  } catch (err) {
+    console.error("Error fetching FOMC decision by minutes date:", err);
+    throw err;
+  }
+}
+
 exports.getFomcMinute = getFomcMinute;
 exports.getFomcDecision = getFomcDecision;
 exports.getFomcContentByDate = getFomcContentByDate;
 exports.getFomcMinutesByDate = getFomcMinutesByDate;
+exports.getFomcMinutesByDecisionDate = getFomcMinutesByDecisionDate;
+exports.getFomcDecisionByMinutesDate = getFomcDecisionByMinutesDate;
+exports.getFomcAllDate = getFomcAllDate;

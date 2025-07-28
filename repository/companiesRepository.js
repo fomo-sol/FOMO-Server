@@ -11,6 +11,7 @@ exports.getAllCompanies = async () => {
                 s.stock_name_kr AS name_kr,
                 s.stock_symbol AS symbol,
                 s.stock_logo_img AS logo,
+                s.stock_rank AS rank,
                 sec.sector_name AS sector,
                 ind.industries_name AS industry
             FROM stocks s
@@ -103,6 +104,7 @@ exports.searchCompanies = async (keyword) => {
             s.stock_name_kr AS name_kr,
             s.stock_symbol AS symbol,
             s.stock_logo_img AS logo,
+            s.stock_rank AS rank,
             sec.sector_name AS sector,
             ind.industries_name AS industry
         FROM stocks s
