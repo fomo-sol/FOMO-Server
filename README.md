@@ -48,13 +48,14 @@
 | 캘린더 | 알림 |
 | <img src="" width="450"> | <img src="" width="450"> |
 
-<br/>
+
 
 ## 시연 영상
 https://pda-fomo-s3.s3.ap-northeast-2.amazonaws.com/image/pdaFinalFomo.mp4
 
 
 <br/>
+
 ## 프로젝트 개요
 
 ### 1️⃣ 기획 의도
