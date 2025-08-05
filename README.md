@@ -40,13 +40,14 @@
 
 ## 실행 화면 
 
-| 랜딩 페이지 | 관심 종목 선택 |
+| 랜딩 페이지 | 실시간 차트 |
 |:---------:|:---------:|
-| <img src="" width="450"> | <img src="" width="450"> |
+| <img src="https://github.com/user-attachments/assets/750c0594-8588-4bbd-9ce3-10a3d9548a84" width="250"> | <img src="https://github.com/user-attachments/assets/920a1a81-e24a-452d-9c13-187e148f619d" width="250"> |
 | FOMC 상세 | 실적 발표 상세 |
-| <img src="" width="450"> | <img src="" width="450"> |
+| <img src="https://github.com/user-attachments/assets/e8b15c73-e27c-4c88-8dc3-f26c5041ad97" width="250"> | <img src="https://github.com/user-attachments/assets/cbdfd732-bfa8-4029-ad6c-26b76d6ff0df" width="250"> |
 | 캘린더 | 알림 |
-| <img src="" width="450"> | <img src="" width="450"> |
+| <img src="https://github.com/user-attachments/assets/abbb0449-668b-450e-bce5-acc44f04e03f" width="250"> | <img src="https://github.com/user-attachments/assets/8a44c8a6-5a35-42df-ad45-2b49e765abe4" width="250"> |
+
 
 
 
