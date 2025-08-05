@@ -10,8 +10,9 @@
 | 김지수 | 김민규 | 이민주 | 조정현 | 
 | :---: | :---: | :---: | :---: |
 | Full-Stack, Design, Infra | Full-Stack, AI | Full-Stack, AI | Full-Stack, Infra |
-| <img src="https://avatars.githubusercontent.com/u/86948824?v=4" alt="김지수 프로필" width="180" height="180"> | <img src="https://github.com/user-attachments/assets/edc49f7f-41ad-46d9-8298-25e8480dd6b5" alt="김민규 프로필" width="180" height="180"> | <img src="https://github.com/user-attachments/assets/c46de923-bc5c-4a09-97aa-37cd7573dd40" alt="이민주 프로필" width="195" height="195"> | <img src="https://github.com/user-attachments/assets/480b3183-e8c7-47d5-9d15-11c3c89165ae" t="조정현 프로필" width="180" height="180"> |
+| <img src="https://avatars.githubusercontent.com/u/86948824?v=4" alt="김지수 프로필" width="180" height="180"> | <img src="https://github.com/user-attachments/assets/edc49f7f-41ad-46d9-8298-25e8480dd6b5" alt="김민규 프로필" width="180" height="180"> | <img src="https://github.com/user-attachments/assets/c46de923-bc5c-4a09-97aa-37cd7573dd40" alt="이민주 프로필" width="195" height="195"> | <img src="https://github.com/user-attachments/assets/2b9a329f-3d40-44dc-bd4b-846360426e69" t="조정현 프로필" width="180" height="180"> |
 | [Jixoo-IT](https://github.com/Jixoo-IT) | [kmkkkp](https://github.com/kmkkkp) | [minju00](https://github.com/minju00) | [CISXO](https://github.com/CISXO) |
+
 
 ### 개발 기간
 2025.07.02 - 2025.07.29
